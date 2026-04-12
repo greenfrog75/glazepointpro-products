@@ -2622,12 +2622,12 @@
             }
 
             // ── Embedded mode commands (from pvc-combined-frame parent) ──────
-            if (event.data.source === 'bubble-control' && event.data.command === 'enterEmbeddedMode') {
+            if ((event.data.source === 'bubble-control' || event.data.source === 'combined-frame-master') && event.data.command === 'enterEmbeddedMode') {
                 pvcResiDoor_enterEmbeddedMode();
                 return;
             }
 
-            if (event.data.source === 'bubble-control' && event.data.command === 'updateDimensions') {
+            if ((event.data.source === 'bubble-control' || event.data.source === 'combined-frame-master') && event.data.command === 'updateDimensions') {
                 var d = event.data.data || {};
                 if (d.scaleFactor) {
                     SCALE_FACTOR = d.scaleFactor;

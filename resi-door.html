@@ -2605,6 +2605,9 @@
         window.addEventListener('message', function(event) {
             if (!event.data || !event.data.source) return;
             
+            // DEBUG — log all incoming messages
+            console.log('🔵 Resi door received message:', JSON.stringify(event.data).substring(0, 200));
+            
             if (event.data.source === 'bubble-control' && event.data.command === 'loadDefaults') {
                 // New product — load data but force midrails to 0 regardless of schema defaults
                 var defaults = event.data.data || {};

@@ -1462,8 +1462,10 @@
             // Re-render bars
             pvcResiDoor_clearAndRerenderBars();
 
-            // Fit to viewport
-            pvcResiDoor_autoScale();
+            // Fit to viewport — skip in embedded mode (parent controls sizing)
+            if (!pvcResiDoor_embeddedMode) {
+                pvcResiDoor_autoScale();
+            }
 
             // Update sash overlay position after layout settles
             pvcResiDoor_updateSashOverlay();

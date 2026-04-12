@@ -949,17 +949,23 @@
                 el.style.display = 'none';
             });
 
-            // Force product-scale-wrap to fill the iframe exactly
+            // Force html/body/scale-wrap to fill iframe fully
+            document.documentElement.style.height = '100%';
+            document.body.style.height = '100%';
+            document.body.style.overflow = 'hidden';
+            document.body.style.background = 'transparent';
+            document.body.style.margin = '0';
+            document.body.style.padding = '0';
+
             var scaleWrap = document.getElementById('product-scale-wrap');
             if (scaleWrap) {
                 scaleWrap.style.width = '100%';
                 scaleWrap.style.height = '100%';
-                scaleWrap.style.overflow = 'hidden';
+                scaleWrap.style.overflow = 'visible';
                 scaleWrap.style.alignItems = 'flex-start';
                 scaleWrap.style.justifyContent = 'flex-start';
             }
 
-            // Remove wrapper padding and force scale(1)
             var wrapper = document.querySelector('.wrapper');
             if (wrapper) {
                 wrapper.style.padding = '0';
@@ -967,9 +973,6 @@
                 wrapper.style.transform = 'scale(1)';
                 wrapper.style.transformOrigin = 'top left';
             }
-
-            document.body.style.background = 'transparent';
-            document.body.style.overflow = 'hidden';
 
             if (pvcResiDoor_resizeObserver) {
                 pvcResiDoor_resizeObserver.disconnect();

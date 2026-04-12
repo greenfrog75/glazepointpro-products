@@ -949,14 +949,27 @@
                 el.style.display = 'none';
             });
 
+            // Force product-scale-wrap to fill the iframe exactly
+            var scaleWrap = document.getElementById('product-scale-wrap');
+            if (scaleWrap) {
+                scaleWrap.style.width = '100%';
+                scaleWrap.style.height = '100%';
+                scaleWrap.style.overflow = 'hidden';
+                scaleWrap.style.alignItems = 'flex-start';
+                scaleWrap.style.justifyContent = 'flex-start';
+            }
+
+            // Remove wrapper padding and force scale(1)
             var wrapper = document.querySelector('.wrapper');
             if (wrapper) {
                 wrapper.style.padding = '0';
+                wrapper.style.margin = '0';
                 wrapper.style.transform = 'scale(1)';
                 wrapper.style.transformOrigin = 'top left';
             }
 
             document.body.style.background = 'transparent';
+            document.body.style.overflow = 'hidden';
 
             if (pvcResiDoor_resizeObserver) {
                 pvcResiDoor_resizeObserver.disconnect();
@@ -2648,6 +2661,15 @@
                 }
                 pvcResiDoor_applyAllVisuals();
                 pvcResiDoor_updateRowVisibility();
+                // In embedded mode, force wrapper to fill the iframe
+                if (pvcResiDoor_embeddedMode) {
+                    var wrapper = document.querySelector('.wrapper');
+                    if (wrapper) {
+                        wrapper.style.transform = 'scale(1)';
+                        wrapper.style.padding = '0';
+                        wrapper.style.margin = '0';
+                    }
+                }
                 return;
             }
             

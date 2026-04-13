@@ -935,6 +935,8 @@
         // Auto-scale is also disabled; the iframe itself is sized by CSS.
         // ============================================
         var pvcResiDoor_embeddedMode = false;
+        var pvcResiDoor_lastOverlayW = 0;
+        var pvcResiDoor_lastOverlayH = 0;
 
         function pvcResiDoor_enterEmbeddedMode() {
             if (pvcResiDoor_embeddedMode) return;
@@ -1467,6 +1469,45 @@
 
             // Update sash overlay position after layout settles
             pvcResiDoor_updateSashOverlay();
+
+            // In embedded mode: re-apply frame hiding and margin zeroing
+            // after every applyAllVisuals since updateRowVisibility re-shows elements
+            if (pvcResiDoor_embeddedMode) {
+                document.documentElement.style.setProperty('--frame-thickness', '0px');
+                document.querySelectorAll(
+                    '.pvc-resi-door-frame-topEdge, .pvc-resi-door-frame-bottomEdge, ' +
+                    '.pvc-resi-door-frame-leftEdge, .pvc-resi-door-frame-rightEdge, ' +
+                    '.pvc-resi-door-frame-border-shadow, #pvcResiDoorFrameBorderShadow, ' +
+                    '.pvc-resi-door-frame-corner-line'
+                ).forEach(function(el) { el.style.display = 'none'; });
+                document.querySelectorAll('.row-panel').forEach(function(el) {
+                    el.style.marginLeft   = '0';
+                    el.style.marginRight  = '0';
+                    el.style.borderTop    = 'none';
+                    el.style.borderBottom = 'none';
+                    el.style.borderLeft   = 'none';
+                    el.style.borderRight  = 'none';
+                });
+                document.querySelectorAll('.sash-area').forEach(function(el) {
+                    el.style.marginTop    = '0';
+                    el.style.marginBottom = '0';
+                });
+                // Re-apply scale transform using last known overlay dimensions
+                if (pvcResiDoor_lastOverlayW && pvcResiDoor_lastOverlayH) {
+                    setTimeout(function() {
+                        var wrapper = document.querySelector('.wrapper');
+                        if (!wrapper) return;
+                        wrapper.style.transform = 'none';
+                        var natW = wrapper.scrollWidth;
+                        var natH = wrapper.scrollHeight;
+                        if (natW > 0 && natH > 0) {
+                            var scale = Math.min(pvcResiDoor_lastOverlayW / natW, pvcResiDoor_lastOverlayH / natH);
+                            wrapper.style.transform       = 'scale(' + scale + ')';
+                            wrapper.style.transformOrigin = 'top left';
+                        }
+                    }, 50);
+                }
+            }
         }
 
         // ============================================
@@ -2699,6 +2740,8 @@
                 }
                 // Final step: scale wrapper to fill overlay exactly
                 if (pvcResiDoor_embeddedMode && d.overlayW && d.overlayH) {
+                    pvcResiDoor_lastOverlayW = d.overlayW;
+                    pvcResiDoor_lastOverlayH = d.overlayH;
                     setTimeout(function() {
                         var wrapper2 = document.querySelector('.wrapper');
                         if (!wrapper2) return;

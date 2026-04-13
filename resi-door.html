@@ -1759,6 +1759,10 @@
             // Same subtraction as mullions — sash bevels contribute to the visual width
             var half1Px = pvcResiDoor_midrail1Height > 0 ? ((pvcResiDoor_midrail1Height - SASH_BORDER_MM * 2) / SCALE_FACTOR) / 2 : 0;
             var half2Px = pvcResiDoor_midrail2Height > 0 ? ((pvcResiDoor_midrail2Height - SASH_BORDER_MM * 2) / SCALE_FACTOR) / 2 : 0;
+            var bevelPx = SASH_BORDER_MM / SCALE_FACTOR;
+            if (pvcResiDoor_midrail1Height > 0) {
+                console.log('MIDRAIL DEBUG: SF=' + SCALE_FACTOR + ', midrail1Mm=' + pvcResiDoor_midrail1Height + ', half1Px=' + half1Px + ', totalGapPx=' + (half1Px * 2) + ', bevelPx=' + bevelPx + ', totalWithBevelsPx=' + (half1Px * 2 + bevelPx * 2) + ', totalMm=' + ((half1Px * 2 + bevelPx * 2) * SCALE_FACTOR) + ', embedded=' + pvcResiDoor_embeddedMode);
+            }
             document.documentElement.style.setProperty('--midrail-1-half', half1Px + 'px');
             document.documentElement.style.setProperty('--midrail-2-half', half2Px + 'px');
         }

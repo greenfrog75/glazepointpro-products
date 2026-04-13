@@ -2650,16 +2650,24 @@
                     pvcResiDoor_recalcScaleDeps();
                 }
                 // Set width input
+                // In embedded mode add 2x frame thickness to compensate for hidden frame edges
                 if (d.widthMm) {
+                    var embeddedWidthMm = pvcResiDoor_embeddedMode
+                        ? d.widthMm + (2 * FRAME_THICKNESS_MM)
+                        : d.widthMm;
                     var wInp = document.querySelector('.top-measure input');
-                    if (wInp) { wInp.value = d.widthMm; }
+                    if (wInp) { wInp.value = embeddedWidthMm; }
                 }
                 // Set height input (rightMeasure total) and row 1
+                // In embedded mode add 2x frame thickness to compensate for hidden frame edges
                 if (d.heightMm) {
+                    var embeddedHeightMm = pvcResiDoor_embeddedMode
+                        ? d.heightMm + (2 * FRAME_THICKNESS_MM)
+                        : d.heightMm;
                     var hInp = document.querySelector('#rightMeasure input');
-                    if (hInp) { hInp.value = d.heightMm; }
+                    if (hInp) { hInp.value = embeddedHeightMm; }
                     var r1 = document.querySelector('#row1 .row-measure input');
-                    if (r1) r1.value = d.heightMm;
+                    if (r1) r1.value = embeddedHeightMm;
                 }
                 pvcResiDoor_redistributeRowHeights();
                 pvcResiDoor_applyAllVisuals();

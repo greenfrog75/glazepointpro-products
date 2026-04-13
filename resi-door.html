@@ -2674,10 +2674,14 @@
                         '.pvc-resi-door-frame-leftEdge, .pvc-resi-door-frame-rightEdge, ' +
                         '.pvc-resi-door-frame-border-shadow, #pvcResiDoorFrameBorderShadow'
                     ).forEach(function(el) { el.style.display = 'none'; });
-                    // Zero row-panel margins and sash margins
+                    // Zero row-panel margins, borders and sash margins
                     document.querySelectorAll('.row-panel').forEach(function(el) {
-                        el.style.marginLeft  = '0';
-                        el.style.marginRight = '0';
+                        el.style.marginLeft   = '0';
+                        el.style.marginRight  = '0';
+                        el.style.borderTop    = 'none';
+                        el.style.borderBottom = 'none';
+                        el.style.borderLeft   = 'none';
+                        el.style.borderRight  = 'none';
                     });
                     document.querySelectorAll('.sash-area').forEach(function(el) {
                         el.style.marginTop    = '0';

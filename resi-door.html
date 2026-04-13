@@ -2650,24 +2650,16 @@
                     pvcResiDoor_recalcScaleDeps();
                 }
                 // Set width input
-                // In embedded mode add 2x frame thickness to compensate for hidden frame edges
                 if (d.widthMm) {
-                    var embeddedWidthMm = pvcResiDoor_embeddedMode
-                        ? d.widthMm + (2 * FRAME_THICKNESS_MM)
-                        : d.widthMm;
                     var wInp = document.querySelector('.top-measure input');
-                    if (wInp) { wInp.value = embeddedWidthMm; }
+                    if (wInp) { wInp.value = d.widthMm; }
                 }
                 // Set height input (rightMeasure total) and row 1
-                // In embedded mode add 2x frame thickness to compensate for hidden frame edges
                 if (d.heightMm) {
-                    var embeddedHeightMm = pvcResiDoor_embeddedMode
-                        ? d.heightMm + (2 * FRAME_THICKNESS_MM)
-                        : d.heightMm;
                     var hInp = document.querySelector('#rightMeasure input');
-                    if (hInp) { hInp.value = embeddedHeightMm; }
+                    if (hInp) { hInp.value = d.heightMm; }
                     var r1 = document.querySelector('#row1 .row-measure input');
-                    if (r1) r1.value = embeddedHeightMm;
+                    if (r1) r1.value = d.heightMm;
                 }
                 pvcResiDoor_redistributeRowHeights();
                 pvcResiDoor_applyAllVisuals();
@@ -2704,6 +2696,21 @@
                     wrapper.style.margin          = '0';
                     wrapper.style.transform       = 'none';
                     wrapper.style.transformOrigin = 'top left';
+                }
+                // Final step: scale wrapper to fill overlay exactly
+                if (pvcResiDoor_embeddedMode && d.overlayW && d.overlayH) {
+                    setTimeout(function() {
+                        var wrapper2 = document.querySelector('.wrapper');
+                        if (!wrapper2) return;
+                        var natW = wrapper2.scrollWidth;
+                        var natH = wrapper2.scrollHeight;
+                        if (natW > 0 && natH > 0) {
+                            var scale = Math.min(d.overlayW / natW, d.overlayH / natH);
+                            wrapper2.style.transform       = 'scale(' + scale + ')';
+                            wrapper2.style.transformOrigin = 'top left';
+                            console.log('🔗 resi-door: scale applied', scale, 'natW='+natW+' natH='+natH+' overlayW='+d.overlayW+' overlayH='+d.overlayH);
+                        }
+                    }, 50);
                 }
                 return;
             }

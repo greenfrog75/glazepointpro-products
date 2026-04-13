@@ -937,6 +937,7 @@
         var pvcResiDoor_embeddedMode = false;
         var pvcResiDoor_lastOverlayW = 0;
         var pvcResiDoor_lastOverlayH = 0;
+        var pvcResiDoor_casementMidrailsMm = []; // casement midrail centres in mm from top
 
         function pvcResiDoor_enterEmbeddedMode() {
             if (pvcResiDoor_embeddedMode) return;
@@ -2690,6 +2691,10 @@
 
             if ((event.data.source === 'bubble-control' || event.data.source === 'combined-frame-master') && event.data.command === 'updateDimensions') {
                 var d = event.data.data || {};
+                // Store casement midrail positions for snap/auto-align
+                if (d.casementMidrailsMm) {
+                    pvcResiDoor_casementMidrailsMm = d.casementMidrailsMm;
+                }
                 // Override SCALE_FACTOR to match parent casement
                 if (d.scaleFactor) {
                     SCALE_FACTOR = d.scaleFactor;
@@ -3532,10 +3537,21 @@
                 splitMm = Math.max(100, Math.min(totalHeightMm - 100, splitMm));
 
                 if (pvcResiDoor_midrail1Height === 0) {
-                    // First midrail — snap to centre if within 15%
+                    // First midrail — snap to casement midrail or centre
                     var centre    = totalHeightMm / 2;
                     var threshold = totalHeightMm * 0.15;
-                    if (Math.abs(splitMm - centre) <= threshold) {
+                    // Auto-align: snap to nearest casement midrail within 15% of total height
+                    var snappedToCasement = false;
+                    for (var ci = 0; ci < pvcResiDoor_casementMidrailsMm.length; ci++) {
+                        var cMm = pvcResiDoor_casementMidrailsMm[ci];
+                        if (Math.abs(splitMm - cMm) <= threshold) {
+                            splitMm = cMm;
+                            snappedToCasement = true;
+                            break;
+                        }
+                    }
+                    // Fallback: snap to centre
+                    if (!snappedToCasement && Math.abs(splitMm - centre) <= threshold) {
                         splitMm = centre;
                     }
                     pvcResiDoor_updateMidrail1Height(90); // default thickness
@@ -3801,6 +3817,15 @@
                 // Clamp
                 if (newRow1 < minRowMm) { newRow1 = minRowMm; newRow2 = pvcResiDoor_midrailDragStartRow1Mm + pvcResiDoor_midrailDragStartRow2Mm - minRowMm; }
                 if (newRow2 < minRowMm) { newRow2 = minRowMm; newRow1 = pvcResiDoor_midrailDragStartRow1Mm + pvcResiDoor_midrailDragStartRow2Mm - minRowMm; }
+                // Snap to casement midrail within 10mm
+                for (var ci = 0; ci < pvcResiDoor_casementMidrailsMm.length; ci++) {
+                    if (Math.abs(newRow1 - pvcResiDoor_casementMidrailsMm[ci]) <= 10) {
+                        var snapped = pvcResiDoor_casementMidrailsMm[ci];
+                        newRow2 = newRow2 + (newRow1 - snapped);
+                        newRow1 = snapped;
+                        break;
+                    }
+                }
                 if (r1) r1.value = Math.round(newRow1);
                 if (r2) r2.value = Math.round(newRow2);
             } else {
@@ -3809,6 +3834,17 @@
                 var newRow3 = pvcResiDoor_midrailDragStartRow3Mm - deltaMm;
                 if (newRow2 < minRowMm) { newRow2 = minRowMm; newRow3 = pvcResiDoor_midrailDragStartRow2Mm + pvcResiDoor_midrailDragStartRow3Mm - minRowMm; }
                 if (newRow3 < minRowMm) { newRow3 = minRowMm; newRow2 = pvcResiDoor_midrailDragStartRow2Mm + pvcResiDoor_midrailDragStartRow3Mm - minRowMm; }
+                // Snap to casement midrail within 10mm (midrail 2 pos = row1 + row2)
+                var r1val = parseFloat(r1 ? r1.value : 0) || 0;
+                var midrail2Pos = r1val + newRow2;
+                for (var ci = 0; ci < pvcResiDoor_casementMidrailsMm.length; ci++) {
+                    if (Math.abs(midrail2Pos - pvcResiDoor_casementMidrailsMm[ci]) <= 10) {
+                        var snapped2 = pvcResiDoor_casementMidrailsMm[ci] - r1val;
+                        newRow3 = newRow3 + (newRow2 - snapped2);
+                        newRow2 = snapped2;
+                        break;
+                    }
+                }
                 if (r2) r2.value = Math.round(newRow2);
                 if (r3) r3.value = Math.round(newRow3);
             }

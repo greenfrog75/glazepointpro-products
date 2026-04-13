@@ -891,7 +891,7 @@
         // Defaults to 45mm if no midrail is set.
         function pvcResiDoor_updateMullionExtHeight() {
             var midrailMm = pvcResiDoor_midrail1Height > 0 ? pvcResiDoor_midrail1Height : 90;
-            var extMm = Math.min(45, midrailMm / 2);
+            var extMm = Math.min(58, midrailMm / 2);
             var extPx = extMm / SCALE_FACTOR;
             document.documentElement.style.setProperty('--mullion-ext', extPx + 'px');
         }
@@ -1756,8 +1756,8 @@
         
         function pvcResiDoor_applyMidrailHeights() {
             // Midrail half px = (midrailMm / SCALE_FACTOR) / 2
-            var half1Px = pvcResiDoor_midrail1Height > 0 ? ((pvcResiDoor_midrail1Height - SASH_BORDER_MM * 2) / SCALE_FACTOR) / 2 : 0;
-            var half2Px = pvcResiDoor_midrail2Height > 0 ? ((pvcResiDoor_midrail2Height - SASH_BORDER_MM * 2) / SCALE_FACTOR) / 2 : 0;
+            var half1Px = pvcResiDoor_midrail1Height > 0 ? (pvcResiDoor_midrail1Height / SCALE_FACTOR) / 2 : 0;
+            var half2Px = pvcResiDoor_midrail2Height > 0 ? (pvcResiDoor_midrail2Height / SCALE_FACTOR) / 2 : 0;
             document.documentElement.style.setProperty('--midrail-1-half', half1Px + 'px');
             document.documentElement.style.setProperty('--midrail-2-half', half2Px + 'px');
         }
@@ -3658,7 +3658,7 @@
                 if (sash1) {
                     var handle = document.createElement('div');
                     handle.className = 'midrail-drag-handle';
-                    var half = ((pvcResiDoor_midrail1Height - SASH_BORDER_MM * 2) / SCALE_FACTOR) / 2;
+                    var half = (pvcResiDoor_midrail1Height / SCALE_FACTOR) / 2;
                     handle.style.cssText = 'height:' + (half * 2 + 4) + 'px;bottom:' + (-half - 2) + 'px;cursor:ns-resize;';
                     handle.dataset.midrail = '1';
                     handle.addEventListener('mousedown', function(e) {
@@ -3677,7 +3677,7 @@
                 if (sash2) {
                     var handle2 = document.createElement('div');
                     handle2.className = 'midrail-drag-handle';
-                    var half2 = ((pvcResiDoor_midrail2Height - SASH_BORDER_MM * 2) / SCALE_FACTOR) / 2;
+                    var half2 = (pvcResiDoor_midrail2Height / SCALE_FACTOR) / 2;
                     handle2.style.cssText = 'height:' + (half2 * 2 + 4) + 'px;bottom:' + (-half2 - 2) + 'px;cursor:ns-resize;';
                     handle2.dataset.midrail = '2';
                     handle2.addEventListener('mousedown', function(e) {

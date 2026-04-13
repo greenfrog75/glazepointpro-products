@@ -951,18 +951,26 @@
                 el.style.display = 'none';
             });
 
-            // Remove wrapper padding — fill the iframe fully
+            // Remove wrapper padding, fix to top left
             var wrapper = document.querySelector('.wrapper');
             if (wrapper) {
-                wrapper.style.padding = '0';
-                wrapper.style.transform = 'scale(1)';
+                wrapper.style.padding         = '0';
+                wrapper.style.margin          = '0';
+                wrapper.style.transform       = 'none';
                 wrapper.style.transformOrigin = 'top left';
             }
 
-            // Body fills the iframe
-            document.body.style.background = 'transparent';
+            // Remove centering from scale wrap, allow overflow
+            var scaleWrap = document.getElementById('product-scale-wrap');
+            if (scaleWrap) {
+                scaleWrap.style.justifyContent = 'flex-start';
+                scaleWrap.style.alignItems     = 'flex-start';
+                scaleWrap.style.overflow       = 'visible';
+            }
 
-            // Disable auto-scale resize observer — parent sets dimensions via CSS
+            document.body.style.overflow = 'visible';
+
+            // Disable auto-scale resize observer
             if (pvcResiDoor_resizeObserver) {
                 pvcResiDoor_resizeObserver.disconnect();
             }
@@ -2646,35 +2654,23 @@
                     var wInp = document.querySelector('.top-measure input');
                     if (wInp) { wInp.value = d.widthMm; }
                 }
-                // Set height input (rightMeasure total)
+                // Set height input (rightMeasure total) and row 1
                 if (d.heightMm) {
                     var hInp = document.querySelector('#rightMeasure input');
                     if (hInp) { hInp.value = d.heightMm; }
-                    // Also update row 1 height to match
                     var r1 = document.querySelector('#row1 .row-measure input');
                     if (r1) r1.value = d.heightMm;
                 }
                 pvcResiDoor_applyAllVisuals();
                 pvcResiDoor_updateRowVisibility();
-                // Apply scale transform so door fills the overlay exactly
-                if (d.overlayW && d.overlayH) {
-                    setTimeout(function() {
-                        var wrapper = document.querySelector('.wrapper');
-                        if (!wrapper) return;
-                        wrapper.style.transform = 'none';
-                        var natW = wrapper.scrollWidth;
-                        var natH = wrapper.scrollHeight;
-                        if (natW > 0 && natH > 0) {
-                            var scaleX = d.overlayW / natW;
-                            var scaleY = d.overlayH / natH;
-                            var scale  = Math.min(scaleX, scaleY);
-                            wrapper.style.transform       = 'scale(' + scale + ')';
-                            wrapper.style.transformOrigin = 'top left';
-                            console.log('🔗 resi-door: scale applied', scale, 'natW='+natW+' natH='+natH+' overlayW='+d.overlayW+' overlayH='+d.overlayH);
-                        }
-                    }, 100);
+                // Ensure wrapper has no padding/margin and is anchored top-left
+                var wrapper = document.querySelector('.wrapper');
+                if (wrapper) {
+                    wrapper.style.padding         = '0';
+                    wrapper.style.margin          = '0';
+                    wrapper.style.transform       = 'none';
+                    wrapper.style.transformOrigin = 'top left';
                 }
-                // Don't auto-scale — parent drives the sizing via iframe dimensions
                 return;
             }
             

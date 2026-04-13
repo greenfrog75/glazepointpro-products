@@ -890,10 +890,7 @@
         // Mullion extension height — half the midrail thickness, capped at 45mm.
         // Defaults to 45mm if no midrail is set.
         function pvcResiDoor_updateMullionExtHeight() {
-            var midrailMm = pvcResiDoor_midrail1Height > 0 ? pvcResiDoor_midrail1Height : 90;
-            var extMm = Math.min(58, midrailMm / 2);
-            var extPx = extMm / SCALE_FACTOR;
-            document.documentElement.style.setProperty('--mullion-ext', extPx + 'px');
+            document.documentElement.style.setProperty('--mullion-ext', '8px');
         }
 
         // ============================================

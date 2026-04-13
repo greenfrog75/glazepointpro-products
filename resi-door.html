@@ -1755,9 +1755,10 @@
         }
         
         function pvcResiDoor_applyMidrailHeights() {
-            // Midrail half px = (midrailMm / SCALE_FACTOR) / 2
-            var half1Px = pvcResiDoor_midrail1Height > 0 ? (pvcResiDoor_midrail1Height / SCALE_FACTOR) / 2 : 0;
-            var half2Px = pvcResiDoor_midrail2Height > 0 ? (pvcResiDoor_midrail2Height / SCALE_FACTOR) / 2 : 0;
+            // Midrail half px = ((midrailMm - sash borders) / SCALE_FACTOR) / 2
+            // Same subtraction as mullions — sash bevels contribute to the visual width
+            var half1Px = pvcResiDoor_midrail1Height > 0 ? ((pvcResiDoor_midrail1Height - SASH_BORDER_MM * 2) / SCALE_FACTOR) / 2 : 0;
+            var half2Px = pvcResiDoor_midrail2Height > 0 ? ((pvcResiDoor_midrail2Height - SASH_BORDER_MM * 2) / SCALE_FACTOR) / 2 : 0;
             document.documentElement.style.setProperty('--midrail-1-half', half1Px + 'px');
             document.documentElement.style.setProperty('--midrail-2-half', half2Px + 'px');
         }
@@ -2628,6 +2629,46 @@
             pvcResiDoor_renderVent(); // Render trickle vent if set
             pvcResiDoor_renderSashVent(); // Render door head vent if set
             pvcResiDoor_buildMidrailDragHandles(); // Build midrail drag handles if midrails exist
+
+            // ── TEST SQUARE — 116mm at SCALE_FACTOR — REMOVE BEFORE PRODUCTION ──
+            (function() {
+                var sizePx = 116 / SCALE_FACTOR;
+                var sq = document.createElement('div');
+                sq.id = 'testSquare116';
+                sq.style.cssText =
+                    'position:absolute;z-index:9999;' +
+                    'width:' + sizePx + 'px;height:' + sizePx + 'px;' +
+                    'background:rgb(0,100,255);' +
+                    'cursor:grab;top:40px;left:40px;' +
+                    'display:flex;align-items:center;justify-content:center;' +
+                    'font:bold 11px sans-serif;color:#fff;pointer-events:auto;' +
+                    'user-select:none;box-sizing:border-box;';
+                sq.textContent = '116mm';
+                var wrapper = document.querySelector('.wrapper');
+                if (wrapper) {
+                    wrapper.style.position = wrapper.style.position || 'relative';
+                    wrapper.appendChild(sq);
+                }
+                var dragging = false, offX = 0, offY = 0;
+                sq.addEventListener('mousedown', function(e) {
+                    if (e.button !== 0) return;
+                    dragging = true;
+                    offX = e.clientX - sq.getBoundingClientRect().left;
+                    offY = e.clientY - sq.getBoundingClientRect().top;
+                    sq.style.cursor = 'grabbing';
+                    e.preventDefault();
+                });
+                document.addEventListener('mousemove', function(e) {
+                    if (!dragging) return;
+                    var parentRect = sq.parentElement.getBoundingClientRect();
+                    sq.style.left = ((e.clientX - offX - parentRect.left) / (parentRect.width / sq.parentElement.scrollWidth)) + 'px';
+                    sq.style.top  = ((e.clientY - offY - parentRect.top)  / (parentRect.height / sq.parentElement.scrollHeight)) + 'px';
+                });
+                document.addEventListener('mouseup', function() {
+                    if (dragging) { dragging = false; sq.style.cursor = 'grab'; }
+                });
+            })();
+            // ── END TEST SQUARE ──
 
             // Row measure click-to-unlock — readonly inputs don't block click events
             for (var r = 1; r <= 3; r++) {

@@ -951,6 +951,34 @@
                 el.style.display = 'none';
             });
 
+            // Hide outer frame elements — combined frame provides the frame
+            var frameIds = [
+                'pvcResiDoorFrameBorderShadow',
+                'pvcResiDoorFrameTopEdge',
+                'pvcResiDoorFrameBottomEdge',
+                'pvcResiDoorFrameLeftEdge',
+                'pvcResiDoorFrameRightEdge'
+            ];
+            frameIds.forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            // Also hide by class in case IDs differ
+            document.querySelectorAll(
+                '.pvc-resi-door-frame-topEdge, .pvc-resi-door-frame-bottomEdge, ' +
+                '.pvc-resi-door-frame-leftEdge, .pvc-resi-door-frame-rightEdge, ' +
+                '.pvc-resi-door-frame-border-shadow'
+            ).forEach(function(el) { el.style.display = 'none'; });
+
+            // Zero out frame thickness so sash margins collapse
+            document.documentElement.style.setProperty('--frame-thickness', '0px');
+
+            // Remove row-panel side margins
+            document.querySelectorAll('.row-panel').forEach(function(el) {
+                el.style.marginLeft  = '0';
+                el.style.marginRight = '0';
+            });
+
             // Remove wrapper padding, fix to top left
             var wrapper = document.querySelector('.wrapper');
             if (wrapper) {
@@ -2664,6 +2692,14 @@
                 pvcResiDoor_redistributeRowHeights();
                 pvcResiDoor_applyAllVisuals();
                 pvcResiDoor_updateRowVisibility();
+                // Re-zero frame thickness — applyAllVisuals resets it via recalcScaleDeps
+                if (pvcResiDoor_embeddedMode) {
+                    document.documentElement.style.setProperty('--frame-thickness', '0px');
+                    document.querySelectorAll('.row-panel').forEach(function(el) {
+                        el.style.marginLeft  = '0';
+                        el.style.marginRight = '0';
+                    });
+                }
                 // Ensure wrapper has no padding/margin and is anchored top-left
                 var wrapper = document.querySelector('.wrapper');
                 if (wrapper) {

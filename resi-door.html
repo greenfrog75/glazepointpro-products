@@ -575,7 +575,7 @@
             right: 0;
             cursor: default;
             z-index: 100;
-            background: rgba(255,255,0,0.5); /* DEBUG — REMOVE BEFORE PRODUCTION */
+            background: transparent;
         }
 
         /* Draw-to-split popup (same pattern as casement cf-sash-popup) */
@@ -1498,16 +1498,6 @@
                     el.style.marginTop    = '0';
                     el.style.marginBottom = '0';
                 });
-                // DEBUG: check if midrail CSS vars survived the embedded block
-                var check1 = getComputedStyle(document.documentElement).getPropertyValue('--midrail-1-half');
-                var check2 = getComputedStyle(document.documentElement).getPropertyValue('--midrail-2-half');
-                console.log('🔴 EMBEDDED BLOCK END: --midrail-1-half=' + check1 + ', --midrail-2-half=' + check2);
-                // Check drag handles still exist
-                var handles = document.querySelectorAll('.midrail-drag-handle');
-                console.log('🔴 Drag handles in DOM after embedded block:', handles.length);
-                handles.forEach(function(h) {
-                    console.log('🔴 Handle:', h.dataset.midrail, 'height:', h.style.height, 'bg:', window.getComputedStyle(h).background, 'parent:', h.parentElement ? h.parentElement.className : 'NONE');
-                });
                 // Re-apply scale transform using last known overlay dimensions
                 if (pvcResiDoor_lastOverlayW && pvcResiDoor_lastOverlayH) {
                     setTimeout(function() {
@@ -1765,16 +1755,11 @@
         }
         
         function pvcResiDoor_applyMidrailHeights() {
-            // DEBUG — hardcoded 100px total midrail for testing
-            var half1Px = pvcResiDoor_midrail1Height > 0 ? 50 : 0;
-            var half2Px = pvcResiDoor_midrail2Height > 0 ? 50 : 0;
-            console.log('🔵 applyMidrailHeights: midrail1=' + pvcResiDoor_midrail1Height + 'mm → half1=' + half1Px + 'px, midrail2=' + pvcResiDoor_midrail2Height + 'mm → half2=' + half2Px + 'px, embedded=' + pvcResiDoor_embeddedMode);
+            // Midrail half px = (midrailMm / SCALE_FACTOR) / 2
+            var half1Px = pvcResiDoor_midrail1Height > 0 ? (pvcResiDoor_midrail1Height / SCALE_FACTOR) / 2 : 0;
+            var half2Px = pvcResiDoor_midrail2Height > 0 ? (pvcResiDoor_midrail2Height / SCALE_FACTOR) / 2 : 0;
             document.documentElement.style.setProperty('--midrail-1-half', half1Px + 'px');
             document.documentElement.style.setProperty('--midrail-2-half', half2Px + 'px');
-            // Verify CSS vars were set
-            var actual1 = getComputedStyle(document.documentElement).getPropertyValue('--midrail-1-half');
-            var actual2 = getComputedStyle(document.documentElement).getPropertyValue('--midrail-2-half');
-            console.log('🔵 CSS vars after set: --midrail-1-half=' + actual1 + ', --midrail-2-half=' + actual2);
         }
         
         // ============================================
@@ -2643,46 +2628,6 @@
             pvcResiDoor_renderVent(); // Render trickle vent if set
             pvcResiDoor_renderSashVent(); // Render door head vent if set
             pvcResiDoor_buildMidrailDragHandles(); // Build midrail drag handles if midrails exist
-
-            // ── TEST SQUARE — 116mm at SCALE_FACTOR — REMOVE BEFORE PRODUCTION ──
-            (function() {
-                var sizePx = 116 / SCALE_FACTOR;
-                var sq = document.createElement('div');
-                sq.id = 'testSquare116';
-                sq.style.cssText =
-                    'position:absolute;z-index:9999;' +
-                    'width:' + sizePx + 'px;height:' + sizePx + 'px;' +
-                    'background:rgba(0,100,255,0.55);border:2px solid #0044cc;' +
-                    'cursor:grab;top:40px;left:40px;' +
-                    'display:flex;align-items:center;justify-content:center;' +
-                    'font:bold 11px sans-serif;color:#fff;pointer-events:auto;' +
-                    'user-select:none;border-radius:3px;';
-                sq.textContent = '116mm';
-                var wrapper = document.querySelector('.wrapper');
-                if (wrapper) {
-                    wrapper.style.position = wrapper.style.position || 'relative';
-                    wrapper.appendChild(sq);
-                }
-                var dragging = false, offX = 0, offY = 0;
-                sq.addEventListener('mousedown', function(e) {
-                    if (e.button !== 0) return;
-                    dragging = true;
-                    offX = e.clientX - sq.getBoundingClientRect().left;
-                    offY = e.clientY - sq.getBoundingClientRect().top;
-                    sq.style.cursor = 'grabbing';
-                    e.preventDefault();
-                });
-                document.addEventListener('mousemove', function(e) {
-                    if (!dragging) return;
-                    var parentRect = sq.parentElement.getBoundingClientRect();
-                    sq.style.left = ((e.clientX - offX - parentRect.left) / (parentRect.width / sq.parentElement.scrollWidth)) + 'px';
-                    sq.style.top  = ((e.clientY - offY - parentRect.top)  / (parentRect.height / sq.parentElement.scrollHeight)) + 'px';
-                });
-                document.addEventListener('mouseup', function() {
-                    if (dragging) { dragging = false; sq.style.cursor = 'grab'; }
-                });
-            })();
-            // ── END TEST SQUARE ──
 
             // Row measure click-to-unlock — readonly inputs don't block click events
             for (var r = 1; r <= 3; r++) {
@@ -3610,7 +3555,6 @@
                         splitMm = centre;
                     }
                     pvcResiDoor_updateMidrail1Height(116); // default thickness
-                    console.log('🟢 DRAW-TO-SPLIT: First midrail created. midrail1Height:', pvcResiDoor_midrail1Height, 'ROW_COUNT:', ROW_COUNT);
                     // Set row 1 height to split position, row 2 gets remainder
                     var row1Mm = splitMm;
                     var row2Mm = totalHeightMm - row1Mm;
@@ -3704,24 +3648,19 @@
         // MIDRAIL DRAG
         // ============================================
         function pvcResiDoor_buildMidrailDragHandles() {
-            console.log('🟡 buildMidrailDragHandles called. midrail1Height:', pvcResiDoor_midrail1Height, 'midrail2Height:', pvcResiDoor_midrail2Height, 'embeddedMode:', pvcResiDoor_embeddedMode, 'SCALE_FACTOR:', SCALE_FACTOR);
             // Remove existing
-            var existing = document.querySelectorAll('.midrail-drag-handle');
-            console.log('🟡 Removing', existing.length, 'existing drag handles');
-            existing.forEach(function(el) { el.remove(); });
+            document.querySelectorAll('.midrail-drag-handle').forEach(function(el) { el.remove(); });
 
             var midrailThicknessPx = 116 / SCALE_FACTOR;
 
             if (pvcResiDoor_midrail1Height > 0) {
                 var sash1 = document.querySelector('.pvc-resi-door-sash-panel1');
-                console.log('🟡 sash1 found:', !!sash1, sash1 ? 'offsetHeight:' + sash1.offsetHeight + ' offsetWidth:' + sash1.offsetWidth : '');
                 if (sash1) {
                     var handle = document.createElement('div');
                     handle.className = 'midrail-drag-handle';
-                    var half = 50; // DEBUG — hardcoded 100px total
+                    var half = (pvcResiDoor_midrail1Height / SCALE_FACTOR) / 2;
                     handle.style.cssText = 'height:' + (half * 2 + 4) + 'px;bottom:' + (-half - 2) + 'px;cursor:ns-resize;';
                     handle.dataset.midrail = '1';
-                    console.log('🟡 Handle 1 created: height=' + (half * 2 + 4) + 'px, bottom=' + (-half - 2) + 'px');
                     handle.addEventListener('mousedown', function(e) {
                         pvcResiDoor_onMidrailDragStart(e, 1);
                     });
@@ -3730,22 +3669,15 @@
                         pvcResiDoor_openMidrailPopup(1);
                     });
                     sash1.appendChild(handle);
-                    // Verify it's in the DOM
-                    var verify = document.querySelectorAll('.midrail-drag-handle');
-                    console.log('🟡 After append: drag handles in DOM:', verify.length);
-                    console.log('🟡 Handle computed style:', window.getComputedStyle(handle).background, 'display:', window.getComputedStyle(handle).display, 'visibility:', window.getComputedStyle(handle).visibility, 'opacity:', window.getComputedStyle(handle).opacity, 'height:', window.getComputedStyle(handle).height);
                 }
-            } else {
-                console.log('🟡 Midrail 1 is 0, no handle created');
             }
 
             if (pvcResiDoor_midrail2Height > 0) {
                 var sash2 = document.querySelector('.pvc-resi-door-sash-panel2');
-                console.log('🟡 sash2 found:', !!sash2);
                 if (sash2) {
                     var handle2 = document.createElement('div');
                     handle2.className = 'midrail-drag-handle';
-                    var half2 = 50; // DEBUG — hardcoded 100px total
+                    var half2 = (pvcResiDoor_midrail2Height / SCALE_FACTOR) / 2;
                     handle2.style.cssText = 'height:' + (half2 * 2 + 4) + 'px;bottom:' + (-half2 - 2) + 'px;cursor:ns-resize;';
                     handle2.dataset.midrail = '2';
                     handle2.addEventListener('mousedown', function(e) {

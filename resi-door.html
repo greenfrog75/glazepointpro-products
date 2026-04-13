@@ -890,7 +890,10 @@
         // Mullion extension height — half the midrail thickness, capped at 45mm.
         // Defaults to 45mm if no midrail is set.
         function pvcResiDoor_updateMullionExtHeight() {
-            document.documentElement.style.setProperty('--mullion-ext', '8px');
+            var midrailMm = pvcResiDoor_midrail1Height > 0 ? pvcResiDoor_midrail1Height : 116;
+            var extMm = Math.min(45, midrailMm / 2);
+            var extPx = extMm / SCALE_FACTOR;
+            document.documentElement.style.setProperty('--mullion-ext', extPx + 'px');
         }
 
         // ============================================
@@ -3551,7 +3554,7 @@
                     if (!snappedToCasement && Math.abs(splitMm - centre) <= threshold) {
                         splitMm = centre;
                     }
-                    pvcResiDoor_updateMidrail1Height(90); // default thickness
+                    pvcResiDoor_updateMidrail1Height(116); // default thickness
                     // Set row 1 height to split position, row 2 gets remainder
                     var row1Mm = splitMm;
                     var row2Mm = totalHeightMm - row1Mm;
@@ -3563,7 +3566,7 @@
 
                 } else {
                     // Second midrail — redistribute to equal thirds
-                    pvcResiDoor_updateMidrail2Height(90); // default thickness
+                    pvcResiDoor_updateMidrail2Height(116); // default thickness
                     var third = Math.round(totalHeightMm / 3);
                     var r1Input = document.querySelector('#row1 .row-measure input');
                     var r2Input = document.querySelector('#row2 .row-measure input');

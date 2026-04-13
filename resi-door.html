@@ -1131,6 +1131,10 @@
             var svg = element.querySelector('svg');
             if (svg) {
                 svg.style.display = type === 'welded' ? 'block' : 'none';
+                // Update SVG line stroke colour dynamically
+                svg.querySelectorAll('line').forEach(function(line) {
+                    line.setAttribute('stroke', strokeColour);
+                });
             }
             element.style.borderTop = 'none';
             element.style.borderBottom = 'none';

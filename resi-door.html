@@ -3399,19 +3399,26 @@
             var isOpenIn = pvcResiDoor_openDirection === 'in';
             if (isOpenIn) { overlay.style.display = 'none'; return; }
 
-            var container = overlay.parentElement;
-            var containerRect = container.getBoundingClientRect();
-            var autoScale = pvcResiDoor_getAutoScale();
             var sashAreas = Array.prototype.slice.call(document.querySelectorAll('.sash-area')).filter(function(el) {
                 return el.offsetParent !== null;
             });
             if (sashAreas.length === 0) { overlay.style.display = 'none'; return; }
+
             var firstRect = sashAreas[0].getBoundingClientRect();
             var lastRect  = sashAreas[sashAreas.length - 1].getBoundingClientRect();
-            overlay.style.top    = ((firstRect.top  - containerRect.top)  / autoScale) + 'px';
-            overlay.style.left   = ((firstRect.left - containerRect.left) / autoScale) + 'px';
-            overlay.style.width  = (firstRect.width  / autoScale) + 'px';
-            overlay.style.height = ((lastRect.bottom - firstRect.top) / autoScale) + 'px';
+
+            // Move overlay to body so it escapes the wrapper's transform/clip context
+            if (overlay.parentElement !== document.body) {
+                document.body.appendChild(overlay);
+                overlay.style.position = 'fixed';
+                overlay.style.zIndex   = '9999';
+                overlay.style.pointerEvents = 'none';
+            }
+
+            overlay.style.left   = firstRect.left   + 'px';
+            overlay.style.top    = firstRect.top     + 'px';
+            overlay.style.width  = firstRect.width   + 'px';
+            overlay.style.height = (lastRect.bottom - firstRect.top) + 'px';
             overlay.style.display = 'block';
         }
 

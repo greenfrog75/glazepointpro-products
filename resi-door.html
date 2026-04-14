@@ -960,10 +960,10 @@
             if (scaleWrap) {
                 scaleWrap.style.justifyContent = 'flex-start';
                 scaleWrap.style.alignItems     = 'flex-start';
-                scaleWrap.style.overflow       = 'visible';
+                scaleWrap.style.overflow       = 'hidden';
             }
 
-            document.body.style.overflow = 'visible';
+            document.body.style.overflow = 'hidden';
 
             // Disable auto-scale resize observer
             if (pvcResiDoor_resizeObserver) {
@@ -1409,26 +1409,19 @@
                 el.style.marginBottom = '0';
             });
             // Re-apply scale transform using last known overlay dimensions.
-            // Use width-driven scale only — the door must always fill the full
-            // overlay height regardless of open direction (open-in has a smaller
-            // sash face so Math.min would leave a gap at the bottom).
+            // Scale to fit width exactly — the combined frame controls the column
+            // width so this is always correct. Height is allowed to fill/clip via
+            // overflow:hidden on the overlay div rather than being scale-constrained.
+            // This fixes the open-in gap (smaller sash face = shorter natH) without
+            // causing overflow scrollbars.
             if (pvcResiDoor_lastOverlayW && pvcResiDoor_lastOverlayH) {
                 setTimeout(function() {
                     var wrapper = document.querySelector('.wrapper');
                     if (!wrapper) return;
                     wrapper.style.transform = 'none';
                     var natW = wrapper.scrollWidth;
-                    var natH = wrapper.scrollHeight;
-                    if (natW > 0 && natH > 0) {
-                        // Scale to fill overlay width exactly; height will fill naturally
-                        // because the door height is driven by the overlay dimensions sent
-                        // from the combined frame, not by the sash face thickness.
-                        var scaleX = pvcResiDoor_lastOverlayW / natW;
-                        var scaleY = pvcResiDoor_lastOverlayH / natH;
-                        // Use scaleY if it would make the door taller (fills gap),
-                        // but never let content overflow width — pick the larger of the two
-                        // only when the height would otherwise leave a gap.
-                        var scale = natH < pvcResiDoor_lastOverlayH ? scaleY : scaleX;
+                    if (natW > 0) {
+                        var scale = pvcResiDoor_lastOverlayW / natW;
                         wrapper.style.transform       = 'scale(' + scale + ')';
                         wrapper.style.transformOrigin = 'top left';
                     }

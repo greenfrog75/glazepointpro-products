@@ -1417,8 +1417,33 @@
                     wrapper.style.transform = 'none';
                     var natW = wrapper.scrollWidth;
                     var natH = wrapper.scrollHeight;
+                    var scaleX = pvcResiDoor_lastOverlayW / natW;
+                    var scaleY = pvcResiDoor_lastOverlayH / natH;
+                    var scale = Math.min(scaleX, scaleY);
+                    console.log('🔵 [EMBED SCALE]',
+                        'direction=' + pvcResiDoor_openDirection,
+                        '| overlayW=' + pvcResiDoor_lastOverlayW,
+                        '| overlayH=' + pvcResiDoor_lastOverlayH,
+                        '| natW=' + natW,
+                        '| natH=' + natH,
+                        '| scaleX=' + scaleX.toFixed(4),
+                        '| scaleY=' + scaleY.toFixed(4),
+                        '| chosen=' + scale.toFixed(4),
+                        '| FRAME_THICKNESS_MM=' + FRAME_THICKNESS_MM,
+                        '| SASH_FACE_MM=' + SASH_FACE_MM
+                    );
+                    // Log bottom sash margin
+                    var bottomSash = document.querySelector('.sash-area');
+                    var allSashes = document.querySelectorAll('.sash-area');
+                    var lastSash = allSashes[allSashes.length - 1];
+                    if (lastSash) console.log('🔵 [EMBED SCALE] lastSash marginBottom=' + lastSash.style.marginBottom + ' marginTop=' + lastSash.style.marginTop);
+                    // Log each row panel height
+                    for (var r = 1; r <= 3; r++) {
+                        var rp = document.querySelector('#row' + r + ' .row-panel');
+                        var sa = document.querySelector('#row' + r + ' .sash-area');
+                        if (rp) console.log('🔵 [EMBED SCALE] row' + r + ' panel.height=' + rp.style.height + ' sash.marginTop=' + (sa ? sa.style.marginTop : 'n/a') + ' sash.marginBottom=' + (sa ? sa.style.marginBottom : 'n/a'));
+                    }
                     if (natW > 0 && natH > 0) {
-                        var scale = Math.min(pvcResiDoor_lastOverlayW / natW, pvcResiDoor_lastOverlayH / natH);
                         wrapper.style.transform       = 'scale(' + scale + ')';
                         wrapper.style.transformOrigin = 'top left';
                     }

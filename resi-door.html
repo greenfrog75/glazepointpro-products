@@ -2749,8 +2749,8 @@
                 pvcResiDoor_handleControlCommand(event.data.command, event.data.data);
             }
             
-            // Save button requests
-            if (event.data.source === 'save-button') {
+            // Save button / combined frame requests
+            if (event.data.source === 'save-button' || event.data.source === 'combined-frame-master') {
                 if (event.data.command === 'getProductData') {
                     var data = pvcResiDoor_collectProductData();
                     window.parent.postMessage({

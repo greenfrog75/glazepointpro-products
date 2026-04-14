@@ -4036,5 +4036,64 @@
         }
 
     </script>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         TEMPORARY DEBUG — press keys 1-6 to colour candidate elements,
+         press 0 to restore. DELETE before production.
+         1 = .glass-area red
+         2 = .glass-pane blue
+         3 = .sash-area green (all rows)
+         4 = wrapper/rows-container yellow
+         5 = force transform scale(1) on wrapper
+         6 = force transform scale(0.5) on wrapper
+         0 = restore all
+    ═══════════════════════════════════════════════════════════ -->
+    <script>
+    (function() {
+        var saved = {};
+        document.addEventListener('keydown', function(e) {
+            var wrapper = document.querySelector('.wrapper');
+            if (e.key === '1') {
+                document.querySelectorAll('.glass-area').forEach(function(el,i) {
+                    saved['ga'+i] = el.style.background;
+                    el.style.background = 'red';
+                });
+                console.log('DEBUG: glass-area = RED');
+            } else if (e.key === '2') {
+                document.querySelectorAll('.glass-pane').forEach(function(el,i) {
+                    saved['gp'+i] = el.style.background;
+                    el.style.background = 'blue';
+                    el.style.opacity = '0.7';
+                });
+                console.log('DEBUG: glass-pane = BLUE');
+            } else if (e.key === '3') {
+                document.querySelectorAll('.sash-area').forEach(function(el,i) {
+                    saved['sa'+i] = el.style.background;
+                    el.style.background = 'lime';
+                });
+                console.log('DEBUG: sash-area = LIME');
+            } else if (e.key === '4') {
+                var rc = document.querySelector('.rows-container');
+                if (rc) { saved['rc'] = rc.style.background; rc.style.background = 'yellow'; }
+                console.log('DEBUG: rows-container = YELLOW');
+            } else if (e.key === '5') {
+                if (wrapper) { saved['wt'] = wrapper.style.transform; wrapper.style.transform = 'scale(1)'; wrapper.style.transformOrigin = 'top left'; }
+                console.log('DEBUG: wrapper scale = 1');
+            } else if (e.key === '6') {
+                if (wrapper) { saved['wt'] = wrapper.style.transform; wrapper.style.transform = 'scale(0.5)'; wrapper.style.transformOrigin = 'top left'; }
+                console.log('DEBUG: wrapper scale = 0.5');
+            } else if (e.key === '0') {
+                document.querySelectorAll('.glass-area').forEach(function(el,i) { if (saved['ga'+i] !== undefined) el.style.background = saved['ga'+i]; });
+                document.querySelectorAll('.glass-pane').forEach(function(el,i) { if (saved['gp'+i] !== undefined) { el.style.background = saved['gp'+i]; el.style.opacity = ''; } });
+                document.querySelectorAll('.sash-area').forEach(function(el,i) { if (saved['sa'+i] !== undefined) el.style.background = saved['sa'+i]; });
+                var rc = document.querySelector('.rows-container');
+                if (rc && saved['rc'] !== undefined) rc.style.background = saved['rc'];
+                if (wrapper && saved['wt'] !== undefined) wrapper.style.transform = saved['wt'];
+                console.log('DEBUG: restored');
+            }
+        });
+        console.log('DEBUG KEYS ACTIVE: 1=glass-area 2=glass-pane 3=sash-area 4=rows-container 5=scale(1) 6=scale(0.5) 0=restore');
+    })();
+    </script>
 </body>
 </html>

@@ -191,14 +191,14 @@
             background: #efeeee;
             display: flex;
             box-sizing: border-box;
-            border-left: 1px solid #808080;
-            border-right: 1px solid #808080;
+            border-left: 1px solid #000000;
+            border-right: 1px solid #000000;
             margin-left: 8px;
             margin-right: 8px;
         }
         
         #row1 .row-panel {
-            border-top: 1px solid #808080;
+            border-top: 1px solid #000000;
         }
         
         #row2 .row-panel {
@@ -207,7 +207,7 @@
 
         #row3 .row-panel {
             border-top: none;
-            border-bottom: 1px solid #808080;
+            border-bottom: 1px solid #000000;
         }
         
         /* Frame edges - outer frame (first-group equivalent) */
@@ -453,7 +453,7 @@
         .cill {
             height: 0;
             background: #efeeee;
-            border: 1px solid #808080;
+            border: 1px solid #000000;
             box-sizing: border-box;
             position: relative;
             width: calc(var(--panel-width) + 32px);  /* approximate seed — overridden by JS */
@@ -602,14 +602,14 @@
         <div class="main-area">
             <div class="rows-container">
                 <!-- Outer frame shadows — 4 edges + 4 radial corners, no clip-path, html2canvas safe -->
-                <div id="pvcResiDoorShadowTop"    style="position:absolute;left:calc(var(--measure-width) + 8px);top:calc(-1 * var(--shadow-frame-h));width:var(--panel-width);height:var(--shadow-frame-h);background:linear-gradient(to top, rgba(0,0,0,0.15) 0%, transparent 100%);z-index:999;pointer-events:none;"></div>
-                <div id="pvcResiDoorShadowBottom" style="position:absolute;left:calc(var(--measure-width) + 8px);bottom:calc(-1 * var(--shadow-frame-h));width:var(--panel-width);height:var(--shadow-frame-h);background:linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, transparent 100%);z-index:999;pointer-events:none;"></div>
-                <div id="pvcResiDoorShadowLeft"   style="position:absolute;left:calc(var(--measure-width) + 8px - var(--shadow-frame-h));top:0;width:var(--shadow-frame-h);height:100%;background:linear-gradient(to left, rgba(0,0,0,0.15) 0%, transparent 100%);z-index:999;pointer-events:none;"></div>
-                <div id="pvcResiDoorShadowRight"  style="position:absolute;left:calc(var(--measure-width) + 8px + var(--panel-width));top:0;width:var(--shadow-frame-h);height:100%;background:linear-gradient(to right, rgba(0,0,0,0.15) 0%, transparent 100%);z-index:999;pointer-events:none;"></div>
-                <div id="pvcResiDoorShadowTL"     style="position:absolute;left:calc(var(--measure-width) + 8px - var(--shadow-frame-h));top:calc(-1 * var(--shadow-frame-h));width:var(--shadow-frame-h);height:var(--shadow-frame-h);background:radial-gradient(circle at 100% 100%, rgba(0,0,0,0.15) 0%, transparent 71%);z-index:999;pointer-events:none;"></div>
-                <div id="pvcResiDoorShadowTR"     style="position:absolute;left:calc(var(--measure-width) + 8px + var(--panel-width));top:calc(-1 * var(--shadow-frame-h));width:var(--shadow-frame-h);height:var(--shadow-frame-h);background:radial-gradient(circle at 0% 100%, rgba(0,0,0,0.15) 0%, transparent 71%);z-index:999;pointer-events:none;"></div>
-                <div id="pvcResiDoorShadowBL"     style="position:absolute;left:calc(var(--measure-width) + 8px - var(--shadow-frame-h));bottom:calc(-1 * var(--shadow-frame-h));width:var(--shadow-frame-h);height:var(--shadow-frame-h);background:radial-gradient(circle at 100% 0%, rgba(0,0,0,0.15) 0%, transparent 71%);z-index:999;pointer-events:none;"></div>
-                <div id="pvcResiDoorShadowBR"     style="position:absolute;left:calc(var(--measure-width) + 8px + var(--panel-width));bottom:calc(-1 * var(--shadow-frame-h));width:var(--shadow-frame-h);height:var(--shadow-frame-h);background:radial-gradient(circle at 0% 0%, rgba(0,0,0,0.15) 0%, transparent 71%);z-index:999;pointer-events:none;"></div>
+                <div id="pvcResiDoorShadowTop"    style="position:absolute;left:calc(var(--measure-width) + 8px);top:calc(-1 * var(--shadow-frame-h));width:var(--panel-width);height:var(--shadow-frame-h);background:linear-gradient(to top, rgba(0,0,0,0.4) 0px, rgba(0,0,0,0.4) 4px, rgba(0,0,0,0.04) 20px, transparent 100%);z-index:999;pointer-events:none;"></div>
+                <div id="pvcResiDoorShadowBottom" style="position:absolute;left:calc(var(--measure-width) + 8px);bottom:calc(-1 * var(--shadow-frame-h));width:var(--panel-width);height:var(--shadow-frame-h);background:linear-gradient(to bottom, rgba(0,0,0,0.4) 0px, rgba(0,0,0,0.4) 4px, rgba(0,0,0,0.04) 20px, transparent 100%);z-index:999;pointer-events:none;"></div>
+                <div id="pvcResiDoorShadowLeft"   style="position:absolute;left:calc(var(--measure-width) + 8px - var(--shadow-frame-h));top:0;width:var(--shadow-frame-h);height:100%;background:linear-gradient(to left, rgba(0,0,0,0.4) 0px, rgba(0,0,0,0.4) 4px, rgba(0,0,0,0.04) 20px, transparent 100%);z-index:999;pointer-events:none;"></div>
+                <div id="pvcResiDoorShadowRight"  style="position:absolute;left:calc(var(--measure-width) + 8px + var(--panel-width));top:0;width:var(--shadow-frame-h);height:100%;background:linear-gradient(to right, rgba(0,0,0,0.4) 0px, rgba(0,0,0,0.4) 4px, rgba(0,0,0,0.04) 20px, transparent 100%);z-index:999;pointer-events:none;"></div>
+                <div id="pvcResiDoorShadowTL"     style="position:absolute;left:calc(var(--measure-width) + 8px - var(--shadow-frame-h));top:calc(-1 * var(--shadow-frame-h));width:var(--shadow-frame-h);height:var(--shadow-frame-h);background:radial-gradient(circle at 100% 100%, rgba(0,0,0,0.4) 0px, rgba(0,0,0,0.4) 4px, rgba(0,0,0,0.04) 20px, transparent 71%);z-index:999;pointer-events:none;"></div>
+                <div id="pvcResiDoorShadowTR"     style="position:absolute;left:calc(var(--measure-width) + 8px + var(--panel-width));top:calc(-1 * var(--shadow-frame-h));width:var(--shadow-frame-h);height:var(--shadow-frame-h);background:radial-gradient(circle at 0% 100%, rgba(0,0,0,0.4) 0px, rgba(0,0,0,0.4) 4px, rgba(0,0,0,0.04) 20px, transparent 71%);z-index:999;pointer-events:none;"></div>
+                <div id="pvcResiDoorShadowBL"     style="position:absolute;left:calc(var(--measure-width) + 8px - var(--shadow-frame-h));bottom:calc(-1 * var(--shadow-frame-h));width:var(--shadow-frame-h);height:var(--shadow-frame-h);background:radial-gradient(circle at 100% 0%, rgba(0,0,0,0.4) 0px, rgba(0,0,0,0.4) 4px, rgba(0,0,0,0.04) 20px, transparent 71%);z-index:999;pointer-events:none;"></div>
+                <div id="pvcResiDoorShadowBR"     style="position:absolute;left:calc(var(--measure-width) + 8px + var(--panel-width));bottom:calc(-1 * var(--shadow-frame-h));width:var(--shadow-frame-h);height:var(--shadow-frame-h);background:radial-gradient(circle at 0% 0%, rgba(0,0,0,0.4) 0px, rgba(0,0,0,0.4) 4px, rgba(0,0,0,0.04) 20px, transparent 71%);z-index:999;pointer-events:none;"></div>
                 <!-- Sash open-out shadow -->
                 <!-- Sash open-out shadow — 4 edges + 4 corners, shown only for open-out -->
                 <div id="pvcResiDoorSashShadowTop"    style="position:absolute;left:calc(var(--measure-width) + 8px + var(--frame-thickness));top:calc(var(--frame-thickness) - var(--shadow-sash-h));width:calc(var(--panel-width) - var(--frame-thickness) * 2);height:var(--shadow-sash-h);background:linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%);z-index:999;pointer-events:none;display:none;"></div>
@@ -879,7 +879,7 @@
             document.documentElement.style.setProperty('--sash-inset',      sf + 'px');
             document.documentElement.style.setProperty('--glass-border',    gb + 'px');
             document.documentElement.style.setProperty('--mullion-width',   mw + 'px');
-            document.documentElement.style.setProperty('--shadow-frame-h',  (60  / SCALE_FACTOR) + 'px');
+            document.documentElement.style.setProperty('--shadow-frame-h',  (110 / SCALE_FACTOR) + 'px');
             document.documentElement.style.setProperty('--shadow-sash-h',   (7.5 / SCALE_FACTOR) + 'px');
         }
 
@@ -1771,7 +1771,7 @@
                 var lastRow = document.getElementById('row' + ROW_COUNT);
                 if (lastRow) {
                     var panel = lastRow.querySelector('.row-panel');
-                    if (panel) panel.style.borderBottom = '1px solid #808080';
+                    if (panel) panel.style.borderBottom = '1px solid #000000';
                 }
             }
         }

@@ -983,9 +983,9 @@
         var pvcResiDoor_frameColour = '#efeeee';
         var pvcResiDoor_frameColourObj = null;
         var pvcResiDoor_sashColour = '#efeeee';
-        var pvcResiDoor_sashColourObj = null;
+        var pvcResiDoor_doorSashColourObj = null;
         var pvcResiDoor_internalFrameColourObj = null;
-        var pvcResiDoor_internalSashColourObj = null;
+        var pvcResiDoor_internalDoorSashColourObj = null;
         var pvcResiDoor_savedProfileName = '';
         var pvcResiDoor_savedRangeName   = '';
 
@@ -1777,7 +1777,7 @@
             
             if (material === 'panel') {
                 // Use external sash colour
-                var colour = pvcResiDoor_sashColourObj ? pvcResiDoor_sashColourObj.hex : pvcResiDoor_sashColour;
+                var colour = pvcResiDoor_doorSashColourObj ? pvcResiDoor_doorSashColourObj.hex : pvcResiDoor_sashColour;
                 glassArea.style.background = colour;
             } else {
                 // Glass - black
@@ -1965,7 +1965,7 @@
             }
             
             // Door head vent uses external sash colour, falls back to frame colour
-            var sashColor = (pvcResiDoor_sashColourObj && pvcResiDoor_sashColourObj.hex) ? pvcResiDoor_sashColourObj.hex : 
+            var sashColor = (pvcResiDoor_doorSashColourObj && pvcResiDoor_doorSashColourObj.hex) ? pvcResiDoor_doorSashColourObj.hex : 
                             (pvcResiDoor_frameColourObj && pvcResiDoor_frameColourObj.hex) ? pvcResiDoor_frameColourObj.hex : 
                             pvcResiDoor_sashColour || pvcResiDoor_frameColour || '#efeeee';
             var borderColor = getStrokeColour(sashColor);
@@ -2846,10 +2846,10 @@
                     lockedRows: pvcResiDoor_lockedRows
                 },
                 colours: {
-                    externalFrame: pvcResiDoor_frameColourObj,
-                    externalSash: pvcResiDoor_sashColourObj,
-                    internalFrame: pvcResiDoor_internalFrameColourObj,
-                    internalSash: pvcResiDoor_internalSashColourObj
+                    externalFrame:    pvcResiDoor_frameColourObj,
+                    externalDoorSash: pvcResiDoor_doorSashColourObj,
+                    internalFrame:    pvcResiDoor_internalFrameColourObj,
+                    internalDoorSash: pvcResiDoor_internalDoorSashColourObj
                 },
                 paneBars: pvcResiDoor_paneBars,
                 profileName: pvcResiDoor_savedProfileName,
@@ -3021,10 +3021,10 @@
                         midrail2: pvcResiDoor_midrail2Height
                     },
                     panelMaterials: pvcResiDoor_panelMaterials,
-                    externalFrameColour: pvcResiDoor_frameColourObj,
-                    externalSashColour: pvcResiDoor_sashColourObj,
-                    internalFrameColour: pvcResiDoor_internalFrameColourObj,
-                    internalSashColour: pvcResiDoor_internalSashColourObj
+                    externalFrameColour:    pvcResiDoor_frameColourObj,
+                    externalDoorSashColour: pvcResiDoor_doorSashColourObj,
+                    internalFrameColour:    pvcResiDoor_internalFrameColourObj,
+                    internalDoorSashColour: pvcResiDoor_internalDoorSashColourObj
                 }
             };
             
@@ -3049,13 +3049,13 @@
                     if (data.target === 'externalFrame') {
                         pvcResiDoor_frameColourObj = data.colour;
                         if (data.colour && data.colour.hex) pvcResiDoor_applyFrameColour(data.colour.hex);
-                    } else if (data.target === 'externalSash' || data.target === 'doorSash') {
-                        pvcResiDoor_sashColourObj = data.colour;
+                    } else if (data.target === 'externalDoorSash') {
+                        pvcResiDoor_doorSashColourObj = data.colour;
                         if (data.colour && data.colour.hex) pvcResiDoor_applySashColour(data.colour.hex);
                     } else if (data.target === 'internalFrame') {
                         pvcResiDoor_internalFrameColourObj = data.colour;
-                    } else if (data.target === 'internalSash') {
-                        pvcResiDoor_internalSashColourObj = data.colour;
+                    } else if (data.target === 'internalDoorSash') {
+                        pvcResiDoor_internalDoorSashColourObj = data.colour;
                     }
                     break;
                 case 'updateFrameExternalCorner':
@@ -3265,20 +3265,16 @@
                 if (data.externalFrameColour.hex) pvcResiDoor_applyFrameColour(data.externalFrameColour.hex);
             }
 
-            if (data.colours && data.colours.externalSash) {
-                pvcResiDoor_sashColourObj = data.colours.externalSash;
-                if (data.colours.externalSash.hex) pvcResiDoor_applySashColour(data.colours.externalSash.hex);
-            } else if (data.externalSashColour) {
-                // Legacy format
-                pvcResiDoor_sashColourObj = data.externalSashColour;
-                if (data.externalSashColour.hex) pvcResiDoor_applySashColour(data.externalSashColour.hex);
+            if (data.colours && data.colours.externalDoorSash) {
+                pvcResiDoor_doorSashColourObj = data.colours.externalDoorSash;
+                if (data.colours.externalDoorSash.hex) pvcResiDoor_applySashColour(data.colours.externalDoorSash.hex);
             }
 
             if (data.colours && data.colours.internalFrame) {
                 pvcResiDoor_internalFrameColourObj = data.colours.internalFrame;
             }
-            if (data.colours && data.colours.internalSash) {
-                pvcResiDoor_internalSashColourObj = data.colours.internalSash;
+            if (data.colours && data.colours.internalDoorSash) {
+                pvcResiDoor_internalDoorSashColourObj = data.colours.internalDoorSash;
             }
             
             // Apply corner types

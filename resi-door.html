@@ -125,18 +125,6 @@
             overflow: visible;
         }
         
-        /* Wrapper for shadow effect - positioned over panels only */
-        .pvc-resi-door-frame-border-shadow {
-            position: absolute;
-            left: calc(var(--measure-width) + 8px);
-            top: 0;
-            bottom: 0;
-            width: var(--panel-width);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-            pointer-events: none;
-            z-index: 0;
-        }
-
         /* Single sash overlay spanning all rows — for open-out shadow */
         .pvc-resi-door-sash-overlay {
             position: absolute;
@@ -145,7 +133,6 @@
             display: none;
             background: transparent;
             box-shadow: 0 0 5px rgba(0,0,0,1);
-            border: 1px solid transparent;
         }
         
         .row {
@@ -614,8 +601,25 @@
         
         <div class="main-area">
             <div class="rows-container">
-                <!-- Shadow overlay for unified door shadow -->
-                <div class="pvc-resi-door-frame-border-shadow" id="pvcResiDoorFrameBorderShadow"></div>
+                <!-- Outer frame shadows — 4 edges + 4 radial corners, no clip-path, html2canvas safe -->
+                <div id="pvcResiDoorShadowTop"    style="position:absolute;left:calc(var(--measure-width) + 8px);top:calc(-1 * var(--shadow-frame-h));width:var(--panel-width);height:var(--shadow-frame-h);background:linear-gradient(to top, rgba(0,0,0,0.15) 0%, transparent 100%);z-index:999;pointer-events:none;"></div>
+                <div id="pvcResiDoorShadowBottom" style="position:absolute;left:calc(var(--measure-width) + 8px);bottom:calc(-1 * var(--shadow-frame-h));width:var(--panel-width);height:var(--shadow-frame-h);background:linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, transparent 100%);z-index:999;pointer-events:none;"></div>
+                <div id="pvcResiDoorShadowLeft"   style="position:absolute;left:calc(var(--measure-width) + 8px - var(--shadow-frame-h));top:0;width:var(--shadow-frame-h);height:100%;background:linear-gradient(to left, rgba(0,0,0,0.15) 0%, transparent 100%);z-index:999;pointer-events:none;"></div>
+                <div id="pvcResiDoorShadowRight"  style="position:absolute;left:calc(var(--measure-width) + 8px + var(--panel-width));top:0;width:var(--shadow-frame-h);height:100%;background:linear-gradient(to right, rgba(0,0,0,0.15) 0%, transparent 100%);z-index:999;pointer-events:none;"></div>
+                <div id="pvcResiDoorShadowTL"     style="position:absolute;left:calc(var(--measure-width) + 8px - var(--shadow-frame-h));top:calc(-1 * var(--shadow-frame-h));width:var(--shadow-frame-h);height:var(--shadow-frame-h);background:radial-gradient(circle at 100% 100%, rgba(0,0,0,0.15) 0%, transparent 71%);z-index:999;pointer-events:none;"></div>
+                <div id="pvcResiDoorShadowTR"     style="position:absolute;left:calc(var(--measure-width) + 8px + var(--panel-width));top:calc(-1 * var(--shadow-frame-h));width:var(--shadow-frame-h);height:var(--shadow-frame-h);background:radial-gradient(circle at 0% 100%, rgba(0,0,0,0.15) 0%, transparent 71%);z-index:999;pointer-events:none;"></div>
+                <div id="pvcResiDoorShadowBL"     style="position:absolute;left:calc(var(--measure-width) + 8px - var(--shadow-frame-h));bottom:calc(-1 * var(--shadow-frame-h));width:var(--shadow-frame-h);height:var(--shadow-frame-h);background:radial-gradient(circle at 100% 0%, rgba(0,0,0,0.15) 0%, transparent 71%);z-index:999;pointer-events:none;"></div>
+                <div id="pvcResiDoorShadowBR"     style="position:absolute;left:calc(var(--measure-width) + 8px + var(--panel-width));bottom:calc(-1 * var(--shadow-frame-h));width:var(--shadow-frame-h);height:var(--shadow-frame-h);background:radial-gradient(circle at 0% 0%, rgba(0,0,0,0.15) 0%, transparent 71%);z-index:999;pointer-events:none;"></div>
+                <!-- Sash open-out shadow -->
+                <!-- Sash open-out shadow — 4 edges + 4 corners, shown only for open-out -->
+                <div id="pvcResiDoorSashShadowTop"    style="position:absolute;left:calc(var(--measure-width) + 8px + var(--frame-thickness));top:calc(var(--frame-thickness) - var(--shadow-sash-h));width:calc(var(--panel-width) - var(--frame-thickness) * 2);height:var(--shadow-sash-h);background:linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%);z-index:999;pointer-events:none;display:none;"></div>
+                <div id="pvcResiDoorSashShadowBottom" style="position:absolute;left:calc(var(--measure-width) + 8px + var(--frame-thickness));bottom:calc(var(--frame-thickness) - var(--shadow-sash-h));width:calc(var(--panel-width) - var(--frame-thickness) * 2);height:var(--shadow-sash-h);background:linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);z-index:999;pointer-events:none;display:none;"></div>
+                <div id="pvcResiDoorSashShadowLeft"   style="position:absolute;left:calc(var(--measure-width) + 8px + var(--frame-thickness) - var(--shadow-sash-h));top:var(--frame-thickness);width:var(--shadow-sash-h);height:calc(100% - var(--frame-thickness) * 2);background:linear-gradient(to left, rgba(0,0,0,0.7) 0%, transparent 100%);z-index:999;pointer-events:none;display:none;"></div>
+                <div id="pvcResiDoorSashShadowRight"  style="position:absolute;left:calc(var(--measure-width) + 8px + var(--panel-width) - var(--frame-thickness));top:var(--frame-thickness);width:var(--shadow-sash-h);height:calc(100% - var(--frame-thickness) * 2);background:linear-gradient(to right, rgba(0,0,0,0.7) 0%, transparent 100%);z-index:999;pointer-events:none;display:none;"></div>
+                <div id="pvcResiDoorSashShadowTL"     style="position:absolute;left:calc(var(--measure-width) + 8px + var(--frame-thickness) - var(--shadow-sash-h));top:calc(var(--frame-thickness) - var(--shadow-sash-h));width:var(--shadow-sash-h);height:var(--shadow-sash-h);background:radial-gradient(circle at 100% 100%, rgba(0,0,0,0.7) 0%, transparent 71%);z-index:999;pointer-events:none;display:none;"></div>
+                <div id="pvcResiDoorSashShadowTR"     style="position:absolute;left:calc(var(--measure-width) + 8px + var(--panel-width) - var(--frame-thickness));top:calc(var(--frame-thickness) - var(--shadow-sash-h));width:var(--shadow-sash-h);height:var(--shadow-sash-h);background:radial-gradient(circle at 0% 100%, rgba(0,0,0,0.7) 0%, transparent 71%);z-index:999;pointer-events:none;display:none;"></div>
+                <div id="pvcResiDoorSashShadowBL"     style="position:absolute;left:calc(var(--measure-width) + 8px + var(--frame-thickness) - var(--shadow-sash-h));bottom:calc(var(--frame-thickness) - var(--shadow-sash-h));width:var(--shadow-sash-h);height:var(--shadow-sash-h);background:radial-gradient(circle at 100% 0%, rgba(0,0,0,0.7) 0%, transparent 71%);z-index:999;pointer-events:none;display:none;"></div>
+                <div id="pvcResiDoorSashShadowBR"     style="position:absolute;left:calc(var(--measure-width) + 8px + var(--panel-width) - var(--frame-thickness));bottom:calc(var(--frame-thickness) - var(--shadow-sash-h));width:var(--shadow-sash-h);height:var(--shadow-sash-h);background:radial-gradient(circle at 0% 0%, rgba(0,0,0,0.7) 0%, transparent 71%);z-index:999;pointer-events:none;display:none;"></div>
                 <!-- Sash open-out overlay — single div spanning all rows -->
                 <div class="pvc-resi-door-sash-overlay" id="pvcResiDoorSashOverlay"></div>
                 <div class="row" id="row1">
@@ -875,6 +879,8 @@
             document.documentElement.style.setProperty('--sash-inset',      sf + 'px');
             document.documentElement.style.setProperty('--glass-border',    gb + 'px');
             document.documentElement.style.setProperty('--mullion-width',   mw + 'px');
+            document.documentElement.style.setProperty('--shadow-frame-h',  (60  / SCALE_FACTOR) + 'px');
+            document.documentElement.style.setProperty('--shadow-sash-h',   (7.5 / SCALE_FACTOR) + 'px');
         }
 
         // Mullion extension height — half the visual midrail thickness, capped at 45mm.
@@ -1394,7 +1400,6 @@
             document.querySelectorAll(
                 '.pvc-resi-door-frame-topEdge, .pvc-resi-door-frame-bottomEdge, ' +
                 '.pvc-resi-door-frame-leftEdge, .pvc-resi-door-frame-rightEdge, ' +
-                '.pvc-resi-door-frame-border-shadow, #pvcResiDoorFrameBorderShadow, ' +
                 '.pvc-resi-door-frame-corner-line'
             ).forEach(function(el) { el.style.display = 'none'; });
             document.querySelectorAll('.row-panel').forEach(function(el) {
@@ -1479,12 +1484,6 @@
                 var cillOverhangPx = 50 / SCALE_FACTOR;
                 cill.style.width = (widthPx + cillOverhangPx * 2) + 'px';
                 cill.style.marginLeft = (8 - cillOverhangPx) + 'px';
-            }
-
-            // Update shadow div width
-            var shadowDiv = document.getElementById('pvcResiDoorFrameBorderShadow');
-            if (shadowDiv) {
-                shadowDiv.style.width = widthPx + 'px';
             }
 
             // Apply row heights
@@ -3396,24 +3395,13 @@
 
         function pvcResiDoor_updateSashOverlay() {
             var overlay = document.getElementById('pvcResiDoorSashOverlay');
-            if (!overlay) return;
             var isOpenIn = pvcResiDoor_openDirection === 'in';
-            if (isOpenIn) { overlay.style.display = 'none'; return; }
-
-            var container = overlay.parentElement;
-            var containerRect = container.getBoundingClientRect();
-            var autoScale = pvcResiDoor_getAutoScale();
-            var sashAreas = Array.prototype.slice.call(document.querySelectorAll('.sash-area')).filter(function(el) {
-                return el.offsetParent !== null;
+            var display = isOpenIn ? 'none' : 'block';
+            if (overlay) overlay.style.display = display;
+            ['Top','Bottom','Left','Right','TL','TR','BL','BR'].forEach(function(s) {
+                var el = document.getElementById('pvcResiDoorSashShadow' + s);
+                if (el) el.style.display = display;
             });
-            if (sashAreas.length === 0) { overlay.style.display = 'none'; return; }
-            var firstRect = sashAreas[0].getBoundingClientRect();
-            var lastRect  = sashAreas[sashAreas.length - 1].getBoundingClientRect();
-            overlay.style.top    = ((firstRect.top  - containerRect.top)  / autoScale) + 'px';
-            overlay.style.left   = ((firstRect.left - containerRect.left) / autoScale) + 'px';
-            overlay.style.width  = (firstRect.width  / autoScale) + 'px';
-            overlay.style.height = ((lastRect.bottom - firstRect.top) / autoScale) + 'px';
-            overlay.style.display = 'block';
         }
 
         function pvcResiDoor_addDrawHandlers() {

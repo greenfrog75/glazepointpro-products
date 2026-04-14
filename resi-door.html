@@ -1,11 +1,5 @@
 <!DOCTYPE html>
 <!--
-    ⚠️ PROPRIETARY SOFTWARE — © Glazepoint 2024-2026
-    This code contains embedded tracking identifiers.
-    Unauthorised copying or redistribution will be detected and pursued.
-    Licensed exclusively for use within the Glazepoint platform.
--->
-<!--
     ============================================================
     AI ASSISTANT: STOP AND READ BEFORE EDITING THIS FILE
     ============================================================
@@ -39,7 +33,6 @@
         }
         
         body { margin: 0; padding: 0; overflow: hidden; height: 100vh; }
-        [data-gp]{position:static}
 
         /* Auto-scale wrap — fills full viewport, centres the product */
         #product-scale-wrap {
@@ -611,7 +604,7 @@
 </head>
 <body>
 <div id="product-scale-wrap">
-<div class="wrapper" data-gp="r7f3a9b2e4d1c">
+<div class="wrapper">
         <div class="top-measure">
             <span class="cap-left"></span>
             <span class="cap-right"></span>
@@ -840,7 +833,6 @@
         var SCALE_FACTOR = 4;  // 1mm = 0.25px
         var ROW_COUNT = 3;
         var DEFAULT_STROKE_COLOUR = '#a0a0a0';
-        var _gp = 'r7f3a9b2e4d1c';
 
         // mm constants — px values are always derived as mm / SCALE_FACTOR at render time
         var FRAME_THICKNESS_MM = 45;   // outer frame face width
@@ -2769,6 +2761,29 @@
                 }
                 if (event.data.command === 'getScreenshot') {
                     pvcResiDoor_captureScreenshot();
+                }
+            }
+
+            // Embedded screenshot — captures current state as-is, no scale changes.
+            // Used by combined frame to get a snapshot of the door for its own screenshot.
+            if ((event.data.source === 'combined-frame-master' || event.data.source === 'save-button') && event.data.command === 'getEmbeddedScreenshot') {
+                var wrapper = document.querySelector('.wrapper');
+                if (wrapper && typeof html2canvas !== 'undefined') {
+                    html2canvas(wrapper, { backgroundColor: null, scale: 2, logging: false })
+                        .then(function(canvas) {
+                            window.parent.postMessage({
+                                source: 'product-display',
+                                command: 'embeddedScreenshotData',
+                                data: { image: canvas.toDataURL('image/png') }
+                            }, '*');
+                        })
+                        .catch(function(err) {
+                            window.parent.postMessage({
+                                source: 'product-display',
+                                command: 'embeddedScreenshotError',
+                                error: err.message
+                            }, '*');
+                        });
                 }
             }
         });

@@ -1803,12 +1803,18 @@
             var material = pvcResiDoor_panelMaterials[panelNum - 1];
             
             if (material === 'panel') {
-                // Use external sash colour
+                // Use external sash colour on glass-area, clear panes
                 var colour = pvcResiDoor_doorSashColourObj ? pvcResiDoor_doorSashColourObj.hex : pvcResiDoor_sashColour;
-                glassArea.style.background = colour;
+                glassArea.style.background = '';
+                glassArea.querySelectorAll('.glass-pane').forEach(function(pane) {
+                    pane.style.background = colour;
+                });
             } else {
-                // Glass — gradient matching casement style
-                glassArea.style.background = 'linear-gradient(135deg, #7a9ab8 0%, #2e3f52 35%, #0d1018 100%)';
+                // Glass — apply gradient directly to each pane so no gap shows at edges
+                glassArea.style.background = '';
+                glassArea.querySelectorAll('.glass-pane').forEach(function(pane) {
+                    pane.style.background = 'linear-gradient(135deg, #7a9ab8 0%, #2e3f52 35%, #0d1018 100%)';
+                });
             }
         }
         

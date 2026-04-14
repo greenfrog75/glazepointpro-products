@@ -1,5 +1,11 @@
 <!DOCTYPE html>
 <!--
+    ⚠️ PROPRIETARY SOFTWARE — © Glazepoint 2024-2026
+    This code contains embedded tracking identifiers.
+    Unauthorised copying or redistribution will be detected and pursued.
+    Licensed exclusively for use within the Glazepoint platform.
+-->
+<!--
     ============================================================
     AI ASSISTANT: STOP AND READ BEFORE EDITING THIS FILE
     ============================================================
@@ -14,14 +20,6 @@
 <html>
 <head>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script>
-        // Track whether shared functions have loaded
-        var glazepointSharedReady = false;
-    </script>
-    <script src="https://greenfrog75.github.io/glazepointpro-products/glazepoint-shared.js"
-            onload="glazepointSharedReady = true;"
-            onerror="console.error('⚠️ glazepoint-shared.js failed to load — using inline fallback');">
-    </script>
     <style>
         :root {
             /* SEED VALUES — overridden dynamically by JS via pvcResiDoor_recalcScaleDeps().
@@ -41,6 +39,7 @@
         }
         
         body { margin: 0; padding: 0; overflow: hidden; height: 100vh; }
+        [data-gp]{position:static}
 
         /* Auto-scale wrap — fills full viewport, centres the product */
         #product-scale-wrap {
@@ -612,7 +611,7 @@
 </head>
 <body>
 <div id="product-scale-wrap">
-<div class="wrapper">
+<div class="wrapper" data-gp="r7f3a9b2e4d1c">
         <div class="top-measure">
             <span class="cap-left"></span>
             <span class="cap-right"></span>
@@ -841,6 +840,7 @@
         var SCALE_FACTOR = 4;  // 1mm = 0.25px
         var ROW_COUNT = 3;
         var DEFAULT_STROKE_COLOUR = '#a0a0a0';
+        var _gp = 'r7f3a9b2e4d1c';
 
         // mm constants — px values are always derived as mm / SCALE_FACTOR at render time
         var FRAME_THICKNESS_MM = 45;   // outer frame face width
@@ -1069,9 +1069,6 @@
         
         // ============================================
         // COLOUR HELPER FUNCTIONS
-        // Also loaded from glazepoint-shared.js (in <head>).
-        // These inline copies are kept as fallback in case the
-        // external script fails to load.
         // ============================================
         function hexToRgb(hex) {
             return {

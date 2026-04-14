@@ -1409,19 +1409,16 @@
                 el.style.marginBottom = '0';
             });
             // Re-apply scale transform using last known overlay dimensions.
-            // Scale to fit width exactly — the combined frame controls the column
-            // width so this is always correct. Height is allowed to fill/clip via
-            // overflow:hidden on the overlay div rather than being scale-constrained.
-            // This fixes the open-in gap (smaller sash face = shorter natH) without
-            // causing overflow scrollbars.
+            // Math.min ensures content never overflows the overlay in either direction.
             if (pvcResiDoor_lastOverlayW && pvcResiDoor_lastOverlayH) {
                 setTimeout(function() {
                     var wrapper = document.querySelector('.wrapper');
                     if (!wrapper) return;
                     wrapper.style.transform = 'none';
                     var natW = wrapper.scrollWidth;
-                    if (natW > 0) {
-                        var scale = pvcResiDoor_lastOverlayW / natW;
+                    var natH = wrapper.scrollHeight;
+                    if (natW > 0 && natH > 0) {
+                        var scale = Math.min(pvcResiDoor_lastOverlayW / natW, pvcResiDoor_lastOverlayH / natH);
                         wrapper.style.transform       = 'scale(' + scale + ')';
                         wrapper.style.transformOrigin = 'top left';
                     }
@@ -1714,7 +1711,8 @@
                         var _bevel = getBevelColours(pvcResiDoor_sashColour);
                         var bottomBevelColour = isOpenIn ? _bevel.light : _bevel.dark;
                         sashArea.style.borderBottom = (SASH_BORDER_MM / SCALE_FACTOR) + 'px solid ' + bottomBevelColour;
-                        sashArea.style.marginBottom = (FRAME_THICKNESS_MM / SCALE_FACTOR) + 'px';
+                        // In embedded mode the frame is hidden so no margin needed
+                        sashArea.style.marginBottom = pvcResiDoor_embeddedMode ? '0' : (FRAME_THICKNESS_MM / SCALE_FACTOR) + 'px';
                     } else {
                         sashArea.style.borderBottom = 'none';
                         sashArea.style.marginBottom = '0';

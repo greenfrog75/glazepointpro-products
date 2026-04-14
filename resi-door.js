@@ -1,1 +1,3161 @@
+// ============================================
+        // CONSTANTS — all dimensions in mm, same pattern as casement
+        // ============================================
+        var SCALE_FACTOR = 4;  // 1mm = 0.25px
+        var ROW_COUNT = 3;
+        var DEFAULT_STROKE_COLOUR = '#a0a0a0';
 
+        // mm constants — px values are always derived as mm / SCALE_FACTOR at render time
+        var FRAME_THICKNESS_MM = 45;   // outer frame face width
+        var SASH_BORDER_MM     = 16;   // sash bevel width (matches casement SASH_BORDER_MM)
+        var SASH_FACE_MM       = 94;   // sash profile face width (open out default)
+        var GLASS_BORDER_MM    = 16;   // glass bevel width
+        var MULLION_WIDTH_MM   = 90;   // mullion visible width
+
+        // Derived px values — recalculated whenever SCALE_FACTOR changes
+        function pvcResiDoor_recalcScaleDeps() {
+            // ── HOW SASH_FACE_MM WORKS ──────────────────────────────────────────
+            // The real-world sash face (as seen from outside) has 3 parts:
+            //   1. Outer bevel  = SASH_BORDER_MM (16mm)
+            //   2. Flat face    = the visible flat PVC surface
+            //   3. Glass bevel  = GLASS_BORDER_MM (16mm) — visually part of the sash face
+            //
+            // SASH_FACE_MM = total real-world sash face - outer bevel
+            //              = total - SASH_BORDER_MM
+            //
+            // Example: total sash face = 110mm
+            //   SASH_FACE_MM = 110 - 16 = 94  ← this is the value to set
+            //
+            // TO CHANGE THE SASH FACE:
+            //   If you want total real-world sash face = X mm:
+            //   Set SASH_FACE_MM = X - SASH_BORDER_MM (e.g. 110mm total → 110 - 16 = 94)
+            //   Only SASH_FACE_MM needs changing — everything recalculates automatically.
+            //
+            // Current values:
+            //   Open out: SASH_FACE_MM = 94  → total sash face = 94 + 16 = 110mm
+            //   Open in:  SASH_FACE_MM = 64  → total sash face = 64 + 16 = 80mm
+            // ────────────────────────────────────────────────────────────────────
+            var ft  = FRAME_THICKNESS_MM / SCALE_FACTOR;
+            var sb  = SASH_BORDER_MM     / SCALE_FACTOR;
+            var sf  = (SASH_FACE_MM - SASH_BORDER_MM) / SCALE_FACTOR;
+            var gb  = GLASS_BORDER_MM    / SCALE_FACTOR;
+            var mw  = (MULLION_WIDTH_MM - SASH_BORDER_MM * 2) / SCALE_FACTOR;
+            document.documentElement.style.setProperty('--frame-thickness', ft + 'px');
+            document.documentElement.style.setProperty('--sash-border',     sb + 'px');
+            document.documentElement.style.setProperty('--sash-inset',      sf + 'px');
+            document.documentElement.style.setProperty('--glass-border',    gb + 'px');
+            document.documentElement.style.setProperty('--mullion-width',   mw + 'px');
+        }
+
+        // Mullion extension height — half the visual midrail thickness, capped at 45mm.
+        // Uses midrailMm - SASH_BORDER_MM*2 because that is the visible midrail on screen.
+        // Defaults to 45mm if no midrail is set.
+        function pvcResiDoor_updateMullionExtHeight() {
+            var midrailMm = pvcResiDoor_midrail1Height > 0 ? (pvcResiDoor_midrail1Height - SASH_BORDER_MM * 2) : (116 - SASH_BORDER_MM * 2);
+            var extMm = Math.min(45, midrailMm / 2);
+            var extPx = extMm / SCALE_FACTOR;
+            document.documentElement.style.setProperty('--mullion-ext', extPx + 'px');
+        }
+
+        // ============================================
+        // SCALE FACTOR FUNCTIONS
+        // ============================================
+        function pvcResiDoor_isInBay() {
+            // Check if product is part of a bay by looking for bayProduct element
+            try {
+                var bayEl = window.parent.document.getElementById('bayProduct');
+                if (bayEl && bayEl.offsetParent !== null) {
+                    return true;
+                }
+            } catch(e) {
+                // Cross-origin or other error - not in bay
+            }
+            return false;
+        }
+
+        // Hook for future responsive scaling — currently fixed at 4.
+        // In embedded mode, SCALE_FACTOR is overridden to 2.5 by updateDimensions.
+        function pvcResiDoor_calculateScaleFactor(width, height) {
+            return 4;
+        }
+        
+        function pvcResiDoor_setScaleFactorFromDimensions() {
+            var widthInput = document.querySelector('.top-measure input');
+            var heightInput = document.querySelector('#rightMeasure input');
+            var width = widthInput ? (parseInt(widthInput.value) || 900) : 900;
+            var height = heightInput ? (parseInt(heightInput.value) || 2100) : 2100;
+            SCALE_FACTOR = pvcResiDoor_calculateScaleFactor(width, height);
+            // Recalculate all CSS px variables from mm constants at new scale
+            pvcResiDoor_recalcScaleDeps();
+            console.log('Scale factor set to:', SCALE_FACTOR, 'for dimensions:', width, 'x', height);
+        }
+
+        // ============================================
+        // EMBEDDED MODE
+        // Called when this file runs inside pvc-combined-frame.
+        // Hides all measurement inputs/rulers — dimensions are driven
+        // by the parent casement via updateDimensions postMessage.
+        // Auto-scale is also disabled; the iframe itself is sized by CSS.
+        // ============================================
+        var pvcResiDoor_embeddedMode = false;
+        var pvcResiDoor_lastOverlayW = 0;
+        var pvcResiDoor_lastOverlayH = 0;
+        var pvcResiDoor_casementMidrailsMm = []; // casement midrail centres in mm from top
+
+        function pvcResiDoor_enterEmbeddedMode() {
+            if (pvcResiDoor_embeddedMode) return;
+            pvcResiDoor_embeddedMode = true;
+
+            // Hide all measurement UI
+            var topMeasure = document.querySelector('.top-measure');
+            if (topMeasure) topMeasure.style.display = 'none';
+
+            var rightMeasure = document.getElementById('rightMeasure');
+            if (rightMeasure) rightMeasure.style.display = 'none';
+
+            document.querySelectorAll('.row-measure').forEach(function(el) {
+                el.style.display = 'none';
+            });
+
+            // Remove wrapper padding, fix to top left
+            var wrapper = document.querySelector('.wrapper');
+            if (wrapper) {
+                wrapper.style.padding         = '0';
+                wrapper.style.margin          = '0';
+                wrapper.style.transform       = 'none';
+                wrapper.style.transformOrigin = 'top left';
+            }
+
+            // Remove centering from scale wrap, allow overflow
+            var scaleWrap = document.getElementById('product-scale-wrap');
+            if (scaleWrap) {
+                scaleWrap.style.justifyContent = 'flex-start';
+                scaleWrap.style.alignItems     = 'flex-start';
+                scaleWrap.style.overflow       = 'visible';
+            }
+
+            document.body.style.overflow = 'visible';
+
+            // Disable auto-scale resize observer
+            if (pvcResiDoor_resizeObserver) {
+                pvcResiDoor_resizeObserver.disconnect();
+            }
+
+            console.log('🔗 Resi door entering embedded mode');
+        }
+        
+        // ============================================
+        // STATE VARIABLES
+        // All mutable state for the resi door product.
+        // Grouped by subsystem for clarity.
+        // ============================================
+
+        // ── Colours ──
+        var pvcResiDoor_frameColour = '#efeeee';
+        var pvcResiDoor_frameColourObj = null;
+        var pvcResiDoor_sashColour = '#efeeee';
+        var pvcResiDoor_sashColourObj = null;
+        var pvcResiDoor_internalFrameColourObj = null;
+        var pvcResiDoor_internalSashColourObj = null;
+        var pvcResiDoor_savedProfileName = '';
+        var pvcResiDoor_savedRangeName   = '';
+
+        // ── Cill ──
+        var pvcResiDoor_cillVisible = false;
+        var pvcResiDoor_cillHeight = 0;
+        var pvcResiDoor_cillProjection = 85;
+
+        // ── Trickle vents ──
+        var pvcResiDoor_ventSize = 0;       // 0 = off, otherwise width in px
+        var pvcResiDoor_sashVentSize = 0;   // 0 = off, door head vent width in px
+
+        // ── Corner types ──
+        var pvcResiDoor_frameExternalCorner = 'welded';
+        var pvcResiDoor_frameInternalCorner = 'welded';
+        var pvcResiDoor_sashExternalCorner = 'welded';
+        var pvcResiDoor_sashInternalCorner = 'welded';
+        var pvcResiDoor_railJointType = 'welded';
+
+        // ── Mullions ──
+        var pvcResiDoor_mullionsPerPanel = [0, 0, 0];
+        var pvcResiDoor_mullionPositions = [[], [], []];
+        var pvcResiDoor_mullionGroups    = [[], [], []]; // group ID per mullion per panel
+        var pvcResiDoor_mullionGroupCounter = 0;         // increments each draw
+        var pvcResiDoor_mullionThicknessMm = [90, 90, 90]; // per panel, defaults to MULLION_WIDTH_MM
+        var pvcResiDoor_mullionsSynced = false; // first change syncs all panels, then independent
+
+        // ── Midrails ──
+        var pvcResiDoor_midrail1Height = 0;  // mm, 0 = off
+        var pvcResiDoor_midrail2Height = 0;
+        var pvcResiDoor_midrailsSynced = false; // first change syncs both, then independent
+
+        // ── Row locks ──
+        // Keyed by row number (1-based). true = locked.
+        // Locked rows stay fixed when total height changes. Cleared on full reset.
+        var pvcResiDoor_lockedRows = {};
+
+        // ── Door properties ──
+        var pvcResiDoor_openDirection = 'out';    // 'out' (towards viewer) or 'in' (away)
+        var pvcResiDoor_doorThreshold = 'Standard';
+        var pvcResiDoor_weatherBar = 'None';
+        var pvcResiDoor_doorCylinder = 'Standard';
+
+        // ── Panel materials ──
+        var pvcResiDoor_panelMaterials = ['glass', 'glass', 'glass'];
+
+        // ── Pane selection and astragal bars ──
+        var pvcResiDoor_selectedPane = null; // e.g. '1A', '2A', '3A'
+        var pvcResiDoor_selectedBar = null;  // {paneId, type: 'vertical'|'horizontal', id}
+        var pvcResiDoor_paneBars = {
+            '1A': { type: 'none', vCount: 3, hCount: 3, vertical: [], horizontal: [] },
+            '1B': { type: 'none', vCount: 3, hCount: 3, vertical: [], horizontal: [] },
+            '1C': { type: 'none', vCount: 3, hCount: 3, vertical: [], horizontal: [] },
+            '2A': { type: 'none', vCount: 3, hCount: 3, vertical: [], horizontal: [] },
+            '3A': { type: 'none', vCount: 3, hCount: 3, vertical: [], horizontal: [] }
+        };
+
+        // ── Draw-to-split interaction state ──
+        var pvcResiDoor_suppressClick = false; // prevents pane click after draw gesture
+        
+        function pvcResiDoor_clearAndRerenderBars() {
+            // Clear bar positions so they get re-initialized on next render
+            Object.keys(pvcResiDoor_paneBars).forEach(function(paneId) {
+                pvcResiDoor_paneBars[paneId].vertical = [];
+                pvcResiDoor_paneBars[paneId].horizontal = [];
+            });
+            pvcResiDoor_selectedBar = null;
+            // Re-render all panes with bars
+            Object.keys(pvcResiDoor_paneBars).forEach(function(paneId) {
+                pvcResiDoor_renderPaneBars(paneId);
+            });
+        }
+        
+        // ============================================
+        // COLOUR HELPER FUNCTIONS
+        // ============================================
+        function hexToRgb(hex) {
+            return {
+                r: parseInt(hex.slice(1,3), 16),
+                g: parseInt(hex.slice(3,5), 16),
+                b: parseInt(hex.slice(5,7), 16)
+            };
+        }
+
+        // Returns perceived luminance (0–255) using standard weighted formula
+        function getLuminance(hex) {
+            var rgb = hexToRgb(hex);
+            return (rgb.r * 0.299) + (rgb.g * 0.587) + (rgb.b * 0.114);
+        }
+
+        function getBevelColours(hex) {
+            var rgb = hexToRgb(hex);
+            var lum = getLuminance(hex) / 255;
+            var darkFactor  = 0.55 + Math.pow(lum, 0.5) * 0.30;
+            var lightFactor = 0.3 + Math.pow(lum, 1.5) * 0.5;
+            var dark  = '#' + [rgb.r,rgb.g,rgb.b].map(function(v){ return Math.round(v * darkFactor).toString(16).padStart(2,'0'); }).join('');
+            var light = lum > 0.9 ? '#ffffff'
+                      : '#' + [rgb.r,rgb.g,rgb.b].map(function(v){ return Math.min(255,Math.round(v+(255-v)*lightFactor)).toString(16).padStart(2,'0'); }).join('');
+            return { dark: dark, light: light };
+        }
+
+        function lightenColour(hex, percent) {
+            var rgb = hexToRgb(hex);
+            var r = Math.min(255, Math.round(rgb.r + (255 - rgb.r) * (percent / 100)));
+            var g = Math.min(255, Math.round(rgb.g + (255 - rgb.g) * (percent / 100)));
+            var b = Math.min(255, Math.round(rgb.b + (255 - rgb.b) * (percent / 100)));
+            return '#' + [r,g,b].map(function(x){ var h = x.toString(16); return h.length === 1 ? '0'+h : h; }).join('');
+        }
+
+        function darkenColour(hex, percent) {
+            var rgb = hexToRgb(hex);
+            var r = Math.max(0, Math.round(rgb.r * (1 - percent / 100)));
+            var g = Math.max(0, Math.round(rgb.g * (1 - percent / 100)));
+            var b = Math.max(0, Math.round(rgb.b * (1 - percent / 100)));
+            return '#' + [r,g,b].map(function(x){ var h = x.toString(16); return h.length === 1 ? '0'+h : h; }).join('');
+        }
+
+        function isLightColour(hex) {
+            return getLuminance(hex) > 128;
+        }
+
+        function getStrokeColour(hex) {
+            return isLightColour(hex) ? darkenColour(hex, 20) : lightenColour(hex, 30);
+        }
+        
+        // ============================================
+        // HELPER FUNCTION
+        // ============================================
+        function setWeldDisplay(element, type, borderSide, strokeColour) {
+            strokeColour = strokeColour || DEFAULT_STROKE_COLOUR;
+            var svg = element.querySelector('svg');
+            if (svg) {
+                svg.style.display = type === 'welded' ? 'block' : 'none';
+                // Update SVG line stroke colour dynamically
+                svg.querySelectorAll('line').forEach(function(line) {
+                    line.setAttribute('stroke', strokeColour);
+                    line.setAttribute('vector-effect', 'non-scaling-stroke');
+                });
+            }
+            element.style.borderTop = 'none';
+            element.style.borderBottom = 'none';
+            element.style.borderLeft = 'none';
+            element.style.borderRight = 'none';
+            if (type === 'mechanical') {
+                element.style['border' + borderSide] = '1px solid ' + strokeColour;
+            }
+        }
+        
+        // ============================================
+        // FRAME COLOUR FUNCTIONS
+        // ============================================
+        function pvcResiDoor_applyFrameColour(hex) {
+            pvcResiDoor_frameColour = hex;
+            var strokeColour = getStrokeColour(hex);
+            
+            document.querySelectorAll('.pvc-resi-door-frame-topEdge, .pvc-resi-door-frame-bottomEdge, .pvc-resi-door-frame-leftEdge, .pvc-resi-door-frame-rightEdge').forEach(function(el) {
+                el.style.background = hex;
+            });
+            document.querySelectorAll('.row-panel').forEach(function(el) {
+                el.style.background = hex;
+            });
+            document.querySelectorAll('.pvc-resi-door-frame-corner-line').forEach(function(el) {
+                el.style.background = hex;
+                var line = el.querySelector('line');
+                if (line) line.setAttribute('stroke', strokeColour);
+            });
+            var cill = document.getElementById('doorCill');
+            if (cill) {
+                cill.style.background = hex;
+                // Update highlight strip colour
+                var highlight = cill.querySelector('.cill-highlight');
+                if (highlight) highlight.style.background = lightenColour(hex, 40);
+            }
+            
+            pvcResiDoor_updateFrameExternalCorner(pvcResiDoor_frameExternalCorner);
+            
+            // Update vent colour
+            pvcResiDoor_renderVent();
+            pvcResiDoor_renderSashVent();
+        }
+        
+        // ============================================
+        // SASH COLOUR FUNCTIONS
+        // ============================================
+        function pvcResiDoor_applySashColour(hex) {
+            pvcResiDoor_sashColour = hex;
+            var bevel = getBevelColours(hex);
+            var lightColour = bevel.light;
+            var darkColour  = bevel.dark;
+            var strokeColour = getStrokeColour(hex);
+            
+            // Determine bevel direction based on open direction
+            var isOpenIn = pvcResiDoor_openDirection === 'in';
+            var sashTopLeft = isOpenIn ? darkColour : lightColour;
+            var sashBottomRight = isOpenIn ? lightColour : darkColour;
+            // Glass bevel is always dark top/left, light right/bottom regardless of open direction
+            var glassTopLeft = darkColour;
+            var glassBottomRight = lightColour;
+            
+            document.querySelectorAll('.sash-area').forEach(function(sash) {
+                sash.style.background = hex;
+                sash.style.borderTopColor = sashTopLeft;
+                sash.style.borderLeftColor = sashTopLeft;
+                sash.style.borderRightColor = sashBottomRight;
+                sash.style.borderBottomColor = sashBottomRight;
+            });
+            // Show sash overlay only when open direction is OUT, sized to actual sash bounds
+            var overlay = document.getElementById('pvcResiDoorSashOverlay');
+            if (overlay) {
+                if (isOpenIn) {
+                    overlay.style.display = 'none';
+                } else {
+                    pvcResiDoor_updateSashOverlay();
+                }
+            }
+            document.querySelectorAll('.glass-pane').forEach(function(pane) {
+                pane.style.borderTopColor = glassTopLeft;
+                pane.style.borderLeftColor = glassTopLeft;
+                pane.style.borderRightColor = glassBottomRight;
+                pane.style.borderBottomColor = glassBottomRight;
+            });
+            document.querySelectorAll('.pvc-resi-door-sash-corner-line').forEach(function(el) {
+                el.style.background = hex;
+                var line = el.querySelector('line');
+                if (line) line.setAttribute('stroke', strokeColour);
+            });
+            document.querySelectorAll('.mullion-ext').forEach(function(el) {
+                el.style.background = hex;
+                el.querySelectorAll('line').forEach(function(line) {
+                    line.setAttribute('stroke', strokeColour);
+                });
+            });
+            document.querySelectorAll('.mullion').forEach(function(el) {
+                el.style.background = hex;
+            });
+            document.querySelectorAll('.midrail-end').forEach(function(el) {
+                el.style.background = hex;
+                var line = el.querySelector('line');
+                if (line) line.setAttribute('stroke', strokeColour);
+            });
+            
+            pvcResiDoor_updateSashExternalCorner(pvcResiDoor_sashExternalCorner);
+            pvcResiDoor_updateRailJointType(pvcResiDoor_railJointType);
+            
+            // Re-apply panel materials (in case any panels use sash colour)
+            pvcResiDoor_applyAllPanelMaterials();
+            
+            // Update door head vent colour
+            pvcResiDoor_renderSashVent();
+        }
+        
+        // ============================================
+        // DOOR OPEN DIRECTION
+        // ============================================
+        // Open out profile measurements
+        var FRAME_THICKNESS_OUT = 45;
+        var SASH_FACE_OUT       = 94;
+        // Open in profile measurements
+        var FRAME_THICKNESS_IN  = 70;
+        var SASH_FACE_IN        = 64;
+
+        function pvcResiDoor_setOpenDirection(direction) {
+            pvcResiDoor_openDirection = direction;
+            if (direction === 'in') {
+                FRAME_THICKNESS_MM = FRAME_THICKNESS_IN;
+                SASH_FACE_MM       = SASH_FACE_IN;
+            } else {
+                FRAME_THICKNESS_MM = FRAME_THICKNESS_OUT;
+                SASH_FACE_MM       = SASH_FACE_OUT;
+            }
+            pvcResiDoor_recalcScaleDeps();
+            pvcResiDoor_applyAllVisuals();
+            pvcResiDoor_applySashColour(pvcResiDoor_sashColour);
+            pvcResiDoor_updateRowVisibility(); // Re-apply bottom border after applySashColour overwrites it
+
+            console.log('Door open direction set to:', direction, '— frame:', FRAME_THICKNESS_MM, 'sash face:', SASH_FACE_MM);
+        }
+        
+        // ============================================
+        // DIMENSION FUNCTIONS
+        // ============================================
+        function pvcResiDoor_updateHeight(rowNum, value) {
+            var newHeight = parseFloat(value);
+            if (isNaN(newHeight) || newHeight <= 0) return;
+
+            var totalInput = document.querySelector('#rightMeasure input');
+            var totalHeight = parseFloat(totalInput.value) || 2100;
+            var frameHeight = pvcResiDoor_cillVisible ? totalHeight - pvcResiDoor_cillHeight : totalHeight;
+
+            // Lock this row and redistribute remaining height among unlocked rows
+            if (ROW_COUNT > 1) {
+                pvcResiDoor_lockedRows[rowNum] = true;
+                pvcResiDoor_applyRowLockState();
+
+                var lockedTotal = 0;
+                var unlockedRows = [];
+                for (var i = 1; i <= ROW_COUNT; i++) {
+                    if (i === rowNum) continue;
+                    if (pvcResiDoor_lockedRows[i]) {
+                        var inp = document.querySelector('#row' + i + ' .row-measure input');
+                        lockedTotal += parseFloat(inp ? inp.value : 0) || 0;
+                    } else {
+                        unlockedRows.push(i);
+                    }
+                }
+                var remaining = frameHeight - newHeight - lockedTotal;
+                var eachUnlocked = unlockedRows.length > 0 ? Math.round(remaining / unlockedRows.length) : 0;
+                for (var j = 0; j < unlockedRows.length; j++) {
+                    var inp = document.querySelector('#row' + unlockedRows[j] + ' .row-measure input');
+                    if (inp) inp.value = eachUnlocked;
+                }
+            }
+            pvcResiDoor_applyAllVisuals();
+        }
+        
+        function pvcResiDoor_updateTotalHeight(value) {
+            var newTotal = parseFloat(value);
+            if (isNaN(newTotal) || newTotal <= 0) return;
+
+            var frameHeight = pvcResiDoor_cillVisible ? newTotal - pvcResiDoor_cillHeight : newTotal;
+
+            // Keep locked rows fixed, distribute remaining among unlocked rows
+            var lockedTotal = 0;
+            var unlockedRows = [];
+            for (var i = 1; i <= ROW_COUNT; i++) {
+                if (pvcResiDoor_lockedRows[i]) {
+                    var inp = document.querySelector('#row' + i + ' .row-measure input');
+                    lockedTotal += parseFloat(inp ? inp.value : 0) || 0;
+                } else {
+                    unlockedRows.push(i);
+                }
+            }
+            var remaining = frameHeight - lockedTotal;
+            var eachUnlocked = unlockedRows.length > 0 ? Math.round(remaining / unlockedRows.length) : 0;
+            for (var j = 0; j < unlockedRows.length; j++) {
+                var inp = document.querySelector('#row' + unlockedRows[j] + ' .row-measure input');
+                if (inp) inp.value = eachUnlocked;
+            }
+
+            pvcResiDoor_setScaleFactorFromDimensions();
+            pvcResiDoor_applyAllVisuals();
+        }
+        
+        function pvcResiDoor_applyRowHeightsVisual() {
+            var cillDisplayHeight = pvcResiDoor_cillHeight / SCALE_FACTOR;
+            
+            for (var i = 1; i <= ROW_COUNT; i++) {
+                var input = document.querySelector('#row' + i + ' .row-measure input');
+                var mm = parseFloat(input.value) || 700;
+                var px = mm / SCALE_FACTOR;
+                var panel = document.querySelector('#row' + i + ' .row-panel');
+                if (panel) panel.style.height = px + 'px';
+            }
+            
+            var frameVisualHeight = 0;
+            for (var i = 1; i <= ROW_COUNT; i++) {
+                var input = document.querySelector('#row' + i + ' .row-measure input');
+                var mm = parseFloat(input.value) || 700;
+                frameVisualHeight += mm / SCALE_FACTOR;
+            }
+            
+            var rightMeasure = document.getElementById('rightMeasure');
+            if (rightMeasure) {
+                var totalVisualHeight = pvcResiDoor_cillVisible ? frameVisualHeight + cillDisplayHeight : frameVisualHeight;
+                rightMeasure.style.height = totalVisualHeight + 'px';
+            }
+            
+            // Re-render bars after dimension change
+            pvcResiDoor_clearAndRerenderBars();
+        }
+        
+        // Applies readonly/styling to row inputs based on pvcResiDoor_lockedRows state.
+        // Called after any lock change so inputs always reflect current state.
+        function pvcResiDoor_applyRowLockState() {
+            for (var i = 1; i <= 3; i++) {
+                var inp = document.querySelector("#row" + i + " .row-measure input");
+                if (!inp) continue;
+                if (pvcResiDoor_lockedRows[i]) {
+                    inp.readOnly         = true;
+                    inp.style.background = "#e0e0e0";
+                    inp.style.cursor     = "pointer";
+                } else {
+                    inp.readOnly         = false;
+                    inp.style.background = "white";
+                    inp.style.cursor     = "text";
+                }
+            }
+        }
+
+        function pvcResiDoor_updateWidth(value) {
+            // Set scale factor based on dimensions (width now affects scale too)
+            pvcResiDoor_setScaleFactorFromDimensions();
+            pvcResiDoor_applyAllVisuals();
+        }
+        
+        // ============================================
+        // EMBEDDED MODE OVERRIDES
+        // Hides outer frame elements, zeros margins/borders, and re-applies
+        // scale transform. Called from applyAllVisuals() and updateDimensions
+        // handler — must run AFTER applyAllVisuals to prevent re-shown elements.
+        // ============================================
+        function pvcResiDoor_applyEmbeddedOverrides() {
+            if (!pvcResiDoor_embeddedMode) return;
+            document.documentElement.style.setProperty('--frame-thickness', '0px');
+            document.querySelectorAll(
+                '.pvc-resi-door-frame-topEdge, .pvc-resi-door-frame-bottomEdge, ' +
+                '.pvc-resi-door-frame-leftEdge, .pvc-resi-door-frame-rightEdge, ' +
+                '.pvc-resi-door-frame-border-shadow, #pvcResiDoorFrameBorderShadow, ' +
+                '.pvc-resi-door-frame-corner-line'
+            ).forEach(function(el) { el.style.display = 'none'; });
+            document.querySelectorAll('.row-panel').forEach(function(el) {
+                el.style.marginLeft   = '0';
+                el.style.marginRight  = '0';
+                el.style.borderTop    = 'none';
+                el.style.borderBottom = 'none';
+                el.style.borderLeft   = 'none';
+                el.style.borderRight  = 'none';
+            });
+            document.querySelectorAll('.sash-area').forEach(function(el) {
+                el.style.marginTop    = '0';
+                el.style.marginBottom = '0';
+            });
+            // Re-apply scale transform using last known overlay dimensions
+            if (pvcResiDoor_lastOverlayW && pvcResiDoor_lastOverlayH) {
+                setTimeout(function() {
+                    var wrapper = document.querySelector('.wrapper');
+                    if (!wrapper) return;
+                    wrapper.style.transform = 'none';
+                    var natW = wrapper.scrollWidth;
+                    var natH = wrapper.scrollHeight;
+                    if (natW > 0 && natH > 0) {
+                        var scale = Math.min(pvcResiDoor_lastOverlayW / natW, pvcResiDoor_lastOverlayH / natH);
+                        wrapper.style.transform       = 'scale(' + scale + ')';
+                        wrapper.style.transformOrigin = 'top left';
+                    }
+                }, 50);
+            }
+        }
+
+        function pvcResiDoor_applyAllVisuals() {
+            console.log('Applying visuals with scale factor:', SCALE_FACTOR);
+
+            // Recalc all CSS px deps from mm constants at current scale
+            pvcResiDoor_recalcScaleDeps();
+
+            // Apply width
+            var widthInput = document.querySelector('.top-measure input');
+            var widthMm = widthInput ? (parseFloat(widthInput.value) || 900) : 900;
+            var widthPx = widthMm / SCALE_FACTOR;
+
+            // Update CSS variable for panel width
+            document.documentElement.style.setProperty('--panel-width', widthPx + 'px');
+
+            document.querySelectorAll('.row-panel').forEach(function(panel) {
+                panel.style.width = widthPx + 'px';
+            });
+            var topMeasure = document.querySelector('.top-measure');
+            if (topMeasure) topMeasure.style.width = widthPx + 'px';
+            var cill = document.getElementById('doorCill');
+            // Cill overhangs panel by fixed 50mm each side regardless of open direction
+            if (cill) {
+                var cillOverhangPx = 50 / SCALE_FACTOR;
+                cill.style.width = (widthPx + cillOverhangPx * 2) + 'px';
+                cill.style.marginLeft = (8 - cillOverhangPx) + 'px';
+            }
+
+            // Update shadow div width
+            var shadowDiv = document.getElementById('pvcResiDoorFrameBorderShadow');
+            if (shadowDiv) {
+                shadowDiv.style.width = widthPx + 'px';
+            }
+
+            // Apply row heights
+            pvcResiDoor_applyRowHeightsVisual();
+
+            // Apply midrail heights (mm-driven)
+            pvcResiDoor_applyMidrailHeights();
+
+            // Update mullion extension height based on midrail thickness
+            pvcResiDoor_updateMullionExtHeight();
+
+            // Apply cill height if visible
+            if (pvcResiDoor_cillVisible) {
+                var cillDisplayHeight = pvcResiDoor_cillHeight / SCALE_FACTOR;
+                var cillElement = document.getElementById('doorCill');
+                if (cillElement) {
+                    cillElement.style.height = cillDisplayHeight + 'px';
+                    // Highlight strip — 8mm wide, lightened frame colour, full width, top of cill
+                    // Matches casement pattern exactly
+                    cillElement.querySelectorAll('.cill-highlight').forEach(function(e) { e.remove(); });
+                    var highlight = document.createElement('div');
+                    highlight.className = 'cill-highlight';
+                    highlight.style.cssText =
+                        'position:absolute;top:1px;left:1px;right:1px;' +
+                        'height:' + (8 / SCALE_FACTOR) + 'px;' +
+                        'background:' + lightenColour(pvcResiDoor_frameColour, 40) + ';' +
+                        'pointer-events:none;';
+                    cillElement.appendChild(highlight);
+                }
+            }
+
+            // Update bottom row border based on cill visibility
+            pvcResiDoor_updateBottomRowBorder();
+
+            // Re-build panel mullions (they depend on panel dimensions)
+            for (var i = 0; i < ROW_COUNT; i++) {
+                pvcResiDoor_rebuildPanelMullions(i, pvcResiDoor_mullionsPerPanel[i]);
+            }
+
+            // Re-render bars
+            pvcResiDoor_clearAndRerenderBars();
+
+            // Fit to viewport
+            pvcResiDoor_autoScale();
+
+            // Update sash overlay position after layout settles
+            pvcResiDoor_updateSashOverlay();
+
+            // In embedded mode: re-apply frame hiding and margin zeroing
+            // after every applyAllVisuals since updateRowVisibility re-shows elements
+            pvcResiDoor_applyEmbeddedOverrides();
+        }
+
+        // ============================================
+        // AUTO-SCALE — fits wrapper to viewport
+        // Same pattern as casement autoScaleProduct()
+        // SCALE_FACTOR stays at 2.5 always.
+        // CSS transform: scale() handles visual fitting.
+        // ============================================
+        var AUTOSCALE_PAD = 40; // px padding inside scale wrap
+
+        function pvcResiDoor_autoScale() {
+            if (pvcResiDoor_embeddedMode) return;
+            var wrap    = document.getElementById('product-scale-wrap');
+            var wrapper = document.querySelector('.wrapper');
+            if (!wrap || !wrapper) return;
+
+            // Reset transform to measure natural size
+            wrapper.style.transform = 'scale(1)';
+
+            var availW = wrap.clientWidth  - AUTOSCALE_PAD * 2;
+            var availH = wrap.clientHeight - AUTOSCALE_PAD * 2;
+            var natW   = wrapper.scrollWidth;
+            var natH   = wrapper.scrollHeight;
+
+            // Fit to most constrained dimension, never upscale beyond 1
+            var scale = Math.min(1, availW / natW, availH / natH);
+
+            wrapper.style.transform = 'scale(' + scale + ')';
+
+            // Counter-scale inputs so they stay readable at any zoom level
+            if (scale < 1) {
+                var counterScale = 1 / scale;
+                wrapper.querySelectorAll('.row-measure input').forEach(function(inp) {
+                    inp.style.transform       = 'scale(' + counterScale + ')';
+                    inp.style.transformOrigin = 'right center';
+                });
+                wrapper.querySelectorAll('.right-measure input').forEach(function(inp) {
+                    inp.style.transform       = 'scale(' + counterScale + ')';
+                    inp.style.transformOrigin = 'left center';
+                });
+                wrapper.querySelectorAll('.top-measure input').forEach(function(inp) {
+                    inp.style.transform       = 'scale(' + counterScale + ')';
+                    inp.style.transformOrigin = 'center bottom';
+                });
+            } else {
+                wrapper.querySelectorAll('.row-measure input, .right-measure input, .top-measure input').forEach(function(inp) {
+                    inp.style.transform = '';
+                });
+            }
+        }
+
+        // Re-scale whenever the wrap div changes size (browser/iframe resize)
+        var pvcResiDoor_resizeObserver = null;
+        (function() {
+            var wrap = document.getElementById('product-scale-wrap');
+            if (!wrap) return;
+            pvcResiDoor_resizeObserver = new ResizeObserver(function() { pvcResiDoor_autoScale(); });
+            pvcResiDoor_resizeObserver.observe(wrap);
+        })();
+        
+        // ============================================
+        // MIDRAIL FUNCTIONS
+        // ============================================
+        function pvcResiDoor_updateMidrail1Height(heightMm) {
+            var oldRowCount = ROW_COUNT;
+            pvcResiDoor_midrail1Height = parseInt(heightMm) || 0;
+            
+            // If midrail 1 is off, also turn off midrail 2
+            if (pvcResiDoor_midrail1Height === 0) {
+                pvcResiDoor_midrail2Height = 0;
+            }
+            
+            pvcResiDoor_updateRowVisibility();
+            
+            // Redistribute row heights if panel count changed
+            if (ROW_COUNT !== oldRowCount) {
+                pvcResiDoor_redistributeRowHeights();
+            }
+            
+            pvcResiDoor_applyMidrailHeights();
+            pvcResiDoor_applyAllVisuals();
+            
+            console.log('📐 Midrail 1 height:', pvcResiDoor_midrail1Height, 'mm, ROW_COUNT:', ROW_COUNT);
+            
+            // Notify console of state change
+            pvcResiDoor_sendStateToConsole();
+        }
+        
+        function pvcResiDoor_updateMidrail2Height(heightMm) {
+            var oldRowCount = ROW_COUNT;
+            pvcResiDoor_midrail2Height = parseInt(heightMm) || 0;
+            
+            pvcResiDoor_updateRowVisibility();
+            
+            // Redistribute row heights if panel count changed
+            if (ROW_COUNT !== oldRowCount) {
+                pvcResiDoor_redistributeRowHeights();
+            }
+            
+            pvcResiDoor_applyMidrailHeights();
+            pvcResiDoor_applyAllVisuals();
+            
+            console.log('📐 Midrail 2 height:', pvcResiDoor_midrail2Height, 'mm, ROW_COUNT:', ROW_COUNT);
+            
+            // Notify console of state change
+            pvcResiDoor_sendStateToConsole();
+        }
+        
+        function pvcResiDoor_redistributeRowHeights() {
+            // Get total height from right measure
+            var heightInput = document.querySelector('#rightMeasure input');
+            var totalHeight = parseInt(heightInput ? heightInput.value : 2100) || 2100;
+            
+            // Subtract cill if visible
+            if (pvcResiDoor_cillVisible) {
+                totalHeight -= pvcResiDoor_cillHeight;
+            }
+            
+            // Divide evenly among visible rows
+            var heightPerRow = Math.round(totalHeight / ROW_COUNT);
+            
+            for (var i = 1; i <= 3; i++) {
+                var input = document.querySelector('#row' + i + ' .row-measure input');
+                if (input) {
+                    if (i <= ROW_COUNT) {
+                        input.value = heightPerRow;
+                    } else {
+                        input.value = 0;
+                    }
+                }
+            }
+            
+            console.log('📐 Redistributed row heights:', heightPerRow, 'x', ROW_COUNT, 'rows');
+        }
+        
+        function pvcResiDoor_updateRowVisibility() {
+            // Calculate ROW_COUNT based on midrails
+            if (pvcResiDoor_midrail1Height === 0) {
+                ROW_COUNT = 1;
+            } else if (pvcResiDoor_midrail2Height === 0) {
+                ROW_COUNT = 2;
+            } else {
+                ROW_COUNT = 3;
+            }
+            
+            // Show/hide rows
+            var row1 = document.getElementById('row1');
+            var row2 = document.getElementById('row2');
+            var row3 = document.getElementById('row3');
+            
+            if (row1) row1.style.display = 'flex';
+            if (row2) row2.style.display = ROW_COUNT >= 2 ? 'flex' : 'none';
+            if (row3) row3.style.display = ROW_COUNT >= 3 ? 'flex' : 'none';
+            
+            // Show/hide midrail-end elements based on midrail state
+            // Midrail 1: row1 bottom + row2 top
+            var midrail1Active = pvcResiDoor_midrail1Height > 0;
+            if (row1) {
+                row1.querySelectorAll('.midrail-end.bottom').forEach(function(el) {
+                    el.style.display = midrail1Active ? 'block' : 'none';
+                });
+            }
+            if (row2) {
+                row2.querySelectorAll('.midrail-end.top').forEach(function(el) {
+                    el.style.display = midrail1Active ? 'block' : 'none';
+                });
+            }
+            
+            // Midrail 2: row2 bottom + row3 top
+            var midrail2Active = pvcResiDoor_midrail2Height > 0;
+            if (row2) {
+                row2.querySelectorAll('.midrail-end.bottom').forEach(function(el) {
+                    el.style.display = midrail2Active ? 'block' : 'none';
+                });
+            }
+            if (row3) {
+                row3.querySelectorAll('.midrail-end.top').forEach(function(el) {
+                    el.style.display = midrail2Active ? 'block' : 'none';
+                });
+            }
+            
+            // Show/hide bottom-row-only elements and apply bottom sash styling
+            var rows = [row1, row2, row3];
+            for (var i = 0; i < rows.length; i++) {
+                var row = rows[i];
+                if (!row) continue;
+                
+                var isBottomRow = (i + 1) === ROW_COUNT;
+                var sashArea = row.querySelector('.sash-area');
+                var glassArea = row.querySelector('.glass-area');
+                
+                // Show/hide bottom-row-only elements
+                row.querySelectorAll('.bottom-row-only').forEach(function(el) {
+                    el.style.display = isBottomRow ? 'block' : 'none';
+                });
+                
+                // Apply/remove bottom sash border and margin
+                if (sashArea) {
+                    if (isBottomRow) {
+                        var isOpenIn = pvcResiDoor_openDirection === 'in';
+                        var _bevel = getBevelColours(pvcResiDoor_sashColour);
+                        var bottomBevelColour = isOpenIn ? _bevel.light : _bevel.dark;
+                        sashArea.style.borderBottom = (SASH_BORDER_MM / SCALE_FACTOR) + 'px solid ' + bottomBevelColour;
+                        sashArea.style.marginBottom = (FRAME_THICKNESS_MM / SCALE_FACTOR) + 'px';
+                    } else {
+                        sashArea.style.borderBottom = 'none';
+                        sashArea.style.marginBottom = '0';
+                    }
+                }
+                
+                // Apply glass-area bottom for last row — sash-inset + sash-border = SASH_FACE_MM / SCALE_FACTOR
+                if (glassArea) {
+                    if (isBottomRow) {
+                        glassArea.style.bottom = (SASH_FACE_MM / SCALE_FACTOR) + 'px';
+                    } else {
+                        glassArea.style.bottom = '';
+                    }
+                }
+            }
+            
+            // Update frame border on bottom row
+            pvcResiDoor_updateBottomRowBorder();
+        }
+        
+        function pvcResiDoor_updateBottomRowBorder() {
+            // Remove bottom border from all row panels first
+            document.querySelectorAll('.row-panel').forEach(function(panel) {
+                panel.style.borderBottom = 'none';
+            });
+            
+            // Add bottom border to the last visible row (unless cill visible)
+            if (!pvcResiDoor_cillVisible) {
+                var lastRow = document.getElementById('row' + ROW_COUNT);
+                if (lastRow) {
+                    var panel = lastRow.querySelector('.row-panel');
+                    if (panel) panel.style.borderBottom = '1px solid #808080';
+                }
+            }
+        }
+        
+        function pvcResiDoor_applyMidrailHeights() {
+            // Midrail half px = ((midrailMm - sash borders) / SCALE_FACTOR) / 2
+            // Same subtraction as mullions — sash bevels contribute to the visual width
+            var half1Px = pvcResiDoor_midrail1Height > 0 ? ((pvcResiDoor_midrail1Height - SASH_BORDER_MM * 2) / SCALE_FACTOR) / 2 : 0;
+            var half2Px = pvcResiDoor_midrail2Height > 0 ? ((pvcResiDoor_midrail2Height - SASH_BORDER_MM * 2) / SCALE_FACTOR) / 2 : 0;
+            document.documentElement.style.setProperty('--midrail-1-half', half1Px + 'px');
+            document.documentElement.style.setProperty('--midrail-2-half', half2Px + 'px');
+        }
+        
+        // ============================================
+        // PANEL MATERIAL FUNCTIONS
+        // ============================================
+        function pvcResiDoor_updatePanelMaterial(panelNum, material) {
+            pvcResiDoor_panelMaterials[panelNum - 1] = material;
+            pvcResiDoor_applyPanelMaterial(panelNum);
+            pvcResiDoor_sendStateToConsole();
+            console.log('📐 Panel', panelNum, 'material:', material);
+        }
+        
+        function pvcResiDoor_applyPanelMaterial(panelNum) {
+            var row = document.getElementById('row' + panelNum);
+            if (!row) return;
+            
+            var glassArea = row.querySelector('.glass-area');
+            if (!glassArea) return;
+            
+            var material = pvcResiDoor_panelMaterials[panelNum - 1];
+            
+            if (material === 'panel') {
+                // Use external sash colour
+                var colour = pvcResiDoor_sashColourObj ? pvcResiDoor_sashColourObj.hex : pvcResiDoor_sashColour;
+                glassArea.style.background = colour;
+            } else {
+                // Glass - black
+                glassArea.style.background = '#1a1a2e';
+            }
+        }
+        
+        function pvcResiDoor_applyAllPanelMaterials() {
+            for (var i = 1; i <= 3; i++) {
+                pvcResiDoor_applyPanelMaterial(i);
+            }
+        }
+        
+        // ============================================
+        // CILL FUNCTIONS
+        // ============================================
+        function pvcResiDoor_updateCillHeight(height) {
+            var oldCillHeight = pvcResiDoor_cillHeight;
+            var newCillHeight = parseInt(height) || 0;
+            pvcResiDoor_cillHeight = newCillHeight;
+            
+            var rowsContainer = document.querySelector('.rows-container');
+            var cillElement = document.getElementById('doorCill');
+            var rightInput = document.querySelector('#rightMeasure input');
+            var currentValue = parseInt(rightInput ? rightInput.value : 2100) || 2100;
+            
+            if (newCillHeight > 0) {
+                rowsContainer.classList.add('cill-visible');
+                pvcResiDoor_cillVisible = true;
+                var newTotal = currentValue - oldCillHeight + newCillHeight;
+                if (rightInput) rightInput.value = newTotal;
+            } else {
+                rowsContainer.classList.remove('cill-visible');
+                pvcResiDoor_cillVisible = false;
+                var newTotal = currentValue - oldCillHeight;
+                if (rightInput) rightInput.value = newTotal;
+            }
+            
+            if (cillElement) {
+                cillElement.style.background = pvcResiDoor_frameColour;
+            }
+            
+            // Set scale factor based on new total height, then apply visuals
+            pvcResiDoor_setScaleFactorFromDimensions();
+            pvcResiDoor_applyAllVisuals();
+        }
+        
+        function pvcResiDoor_updateCillProjection(projection) {
+            pvcResiDoor_cillProjection = parseInt(projection) || 85;
+        }
+        
+        // ============================================
+        // TRICKLE VENT FUNCTIONS
+        // ============================================
+        function pvcResiDoor_setVentSize(width) {
+            pvcResiDoor_ventSize = parseInt(width) || 0;
+            pvcResiDoor_renderVent();
+        }
+        
+        function pvcResiDoor_clearVent() {
+            pvcResiDoor_ventSize = 0;
+            pvcResiDoor_renderVent();
+        }
+        
+        function pvcResiDoor_renderVent() {
+            var vent = document.getElementById('pvcResiDoorVent');
+            if (!vent) return;
+            
+            if (pvcResiDoor_ventSize <= 0) {
+                vent.style.display = 'none';
+                return;
+            }
+            
+            // Frame head vent uses external frame colour
+            var frameColor = (pvcResiDoor_frameColourObj && pvcResiDoor_frameColourObj.hex) ? pvcResiDoor_frameColourObj.hex : pvcResiDoor_frameColour || '#efeeee';
+            var borderColor = getStrokeColour(frameColor);
+            
+            vent.style.display = 'block';
+            vent.style.width = pvcResiDoor_ventSize + 'px';
+            vent.style.background = frameColor;
+            vent.style.borderColor = borderColor;
+            vent.style.boxShadow = '0 2px 4px ' + borderColor + '40';
+        }
+        
+        // Door head (sash) vent
+        function pvcResiDoor_setSashVentSize(width) {
+            pvcResiDoor_sashVentSize = parseInt(width) || 0;
+            pvcResiDoor_renderSashVent();
+        }
+        
+        function pvcResiDoor_clearSashVent() {
+            pvcResiDoor_sashVentSize = 0;
+            pvcResiDoor_renderSashVent();
+        }
+
+        // ============================================
+        // TRICKLE VENT POPUPS
+        // ============================================
+        var VENT_SM_PX = 60;
+        var VENT_LG_PX = 100;
+
+        function pvcResiDoor_openFrameVentPopup() {
+            pvcResiDoor_closeVentPopup();
+            var overlay = document.createElement('div');
+            overlay.className = 'rd-popup-overlay';
+            document.body.appendChild(overlay);
+
+            var popup = document.createElement('div');
+            popup.className = 'rd-popup';
+            var cur = pvcResiDoor_ventSize;
+            popup.innerHTML =
+                '<button class="rd-popup-close">&times;</button>' +
+                '<h3>Frame Head Trickle</h3>' +
+                '<div class="rd-thickness-options">' +
+                '<button class="rd-thickness-btn' + (cur <= 0 ? ' active' : '') + '" data-vent="0">Off</button>' +
+                '<button class="rd-thickness-btn' + (cur === VENT_SM_PX ? ' active' : '') + '" data-vent="' + VENT_SM_PX + '">Sm</button>' +
+                '<button class="rd-thickness-btn' + (cur === VENT_LG_PX ? ' active' : '') + '" data-vent="' + VENT_LG_PX + '">Lg</button>' +
+                '</div>' +
+                '<div class="rd-popup-footer"><button class="rd-thickness-btn active" id="rdFrameVentDone">Done</button></div>';
+            document.body.appendChild(popup);
+
+            popup.querySelectorAll('[data-vent]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var w = parseInt(btn.getAttribute('data-vent'));
+                    pvcResiDoor_setVentSize(w);
+                    popup.querySelectorAll('[data-vent]').forEach(function(b) {
+                        b.classList.toggle('active', parseInt(b.getAttribute('data-vent')) === pvcResiDoor_ventSize);
+                    });
+                    pvcResiDoor_sendToControl('syncVentSize', { ventSize: pvcResiDoor_ventSize, sashVentSize: pvcResiDoor_sashVentSize });
+                });
+            });
+            popup.querySelector('.rd-popup-close').addEventListener('click', pvcResiDoor_closeVentPopup);
+            popup.querySelector('#rdFrameVentDone').addEventListener('click', pvcResiDoor_closeVentPopup);
+            overlay.addEventListener('click', pvcResiDoor_closeVentPopup);
+            popup.addEventListener('click', function(e) { e.stopPropagation(); });
+        }
+
+        function pvcResiDoor_openSashVentPopup() {
+            pvcResiDoor_closeVentPopup();
+            var overlay = document.createElement('div');
+            overlay.className = 'rd-popup-overlay';
+            document.body.appendChild(overlay);
+
+            var popup = document.createElement('div');
+            popup.className = 'rd-popup';
+            var cur = pvcResiDoor_sashVentSize;
+            popup.innerHTML =
+                '<button class="rd-popup-close">&times;</button>' +
+                '<h3>Door Head Trickle</h3>' +
+                '<div class="rd-thickness-options">' +
+                '<button class="rd-thickness-btn' + (cur <= 0 ? ' active' : '') + '" data-sashvent="0">Off</button>' +
+                '<button class="rd-thickness-btn' + (cur === VENT_SM_PX ? ' active' : '') + '" data-sashvent="' + VENT_SM_PX + '">Sm</button>' +
+                '<button class="rd-thickness-btn' + (cur === VENT_LG_PX ? ' active' : '') + '" data-sashvent="' + VENT_LG_PX + '">Lg</button>' +
+                '</div>' +
+                '<div class="rd-popup-footer"><button class="rd-thickness-btn active" id="rdSashVentDone">Done</button></div>';
+            document.body.appendChild(popup);
+
+            popup.querySelectorAll('[data-sashvent]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var w = parseInt(btn.getAttribute('data-sashvent'));
+                    pvcResiDoor_setSashVentSize(w);
+                    popup.querySelectorAll('[data-sashvent]').forEach(function(b) {
+                        b.classList.toggle('active', parseInt(b.getAttribute('data-sashvent')) === pvcResiDoor_sashVentSize);
+                    });
+                    pvcResiDoor_sendToControl('syncVentSize', { ventSize: pvcResiDoor_ventSize, sashVentSize: pvcResiDoor_sashVentSize });
+                });
+            });
+            popup.querySelector('.rd-popup-close').addEventListener('click', pvcResiDoor_closeVentPopup);
+            popup.querySelector('#rdSashVentDone').addEventListener('click', pvcResiDoor_closeVentPopup);
+            overlay.addEventListener('click', pvcResiDoor_closeVentPopup);
+            popup.addEventListener('click', function(e) { e.stopPropagation(); });
+        }
+
+        function pvcResiDoor_closeVentPopup() {
+            document.querySelectorAll('.rd-popup,.rd-popup-overlay').forEach(function(el) { el.remove(); });
+        }
+        
+        function pvcResiDoor_renderSashVent() {
+            var vent = document.getElementById('pvcResiDoorSashVent');
+            if (!vent) return;
+            
+            if (pvcResiDoor_sashVentSize <= 0) {
+                vent.style.display = 'none';
+                return;
+            }
+            
+            // Door head vent uses external sash colour, falls back to frame colour
+            var sashColor = (pvcResiDoor_sashColourObj && pvcResiDoor_sashColourObj.hex) ? pvcResiDoor_sashColourObj.hex : 
+                            (pvcResiDoor_frameColourObj && pvcResiDoor_frameColourObj.hex) ? pvcResiDoor_frameColourObj.hex : 
+                            pvcResiDoor_sashColour || pvcResiDoor_frameColour || '#efeeee';
+            var borderColor = getStrokeColour(sashColor);
+            
+            vent.style.display = 'block';
+            vent.style.width = pvcResiDoor_sashVentSize + 'px';
+            vent.style.background = sashColor;
+            vent.style.borderColor = borderColor;
+            vent.style.boxShadow = '0 2px 4px ' + borderColor + '40';
+        }
+        
+        // ============================================
+        // FRAME CORNER FUNCTIONS
+        // ============================================
+        function pvcResiDoor_toggleFrameExternalCorner() {
+            pvcResiDoor_frameExternalCorner = pvcResiDoor_frameExternalCorner === 'welded' ? 'mechanical' : 'welded';
+            pvcResiDoor_updateFrameExternalCorner(pvcResiDoor_frameExternalCorner);
+            pvcResiDoor_sendToControl('syncFrameExternalCorner', { type: pvcResiDoor_frameExternalCorner });
+        }
+        
+        function pvcResiDoor_updateFrameExternalCorner(type) {
+            pvcResiDoor_frameExternalCorner = type;
+            var frameCorners = document.querySelectorAll('.pvc-resi-door-frame-corner-line');
+            var strokeColour = getStrokeColour(pvcResiDoor_frameColour);
+            
+            frameCorners.forEach(function(corner) {
+                var isTop = corner.classList.contains('top-left') || corner.classList.contains('top-right');
+                setWeldDisplay(corner, type, isTop ? 'Bottom' : 'Top', strokeColour);
+            });
+        }
+        
+        // ============================================
+        // DOOR SASH CORNER FUNCTIONS
+        // ============================================
+        function pvcResiDoor_toggleSashExternalCorner() {
+            pvcResiDoor_sashExternalCorner = pvcResiDoor_sashExternalCorner === 'welded' ? 'mechanical' : 'welded';
+            pvcResiDoor_updateSashExternalCorner(pvcResiDoor_sashExternalCorner);
+            pvcResiDoor_sendToControl('syncSashExternalCorner', { type: pvcResiDoor_sashExternalCorner });
+        }
+        
+        function pvcResiDoor_updateSashExternalCorner(type) {
+            pvcResiDoor_sashExternalCorner = type;
+            var sashCorners = document.querySelectorAll('.pvc-resi-door-sash-corner-line');
+            
+            sashCorners.forEach(function(corner) {
+                var isTop = corner.classList.contains('top-left') || corner.classList.contains('top-right');
+                setWeldDisplay(corner, type, isTop ? 'Bottom' : 'Top', getStrokeColour(pvcResiDoor_sashColour));
+            });
+        }
+        
+        // ============================================
+        // RAIL JOINT FUNCTIONS
+        // ============================================
+        function pvcResiDoor_toggleRailJoint() {
+            pvcResiDoor_railJointType = pvcResiDoor_railJointType === 'welded' ? 'mechanical' : 'welded';
+            pvcResiDoor_updateRailJointType(pvcResiDoor_railJointType);
+            pvcResiDoor_sendToControl('syncRailJoint', { type: pvcResiDoor_railJointType });
+        }
+        
+        function pvcResiDoor_updateRailJointType(type) {
+            pvcResiDoor_railJointType = type;
+            var strokeColour = getStrokeColour(pvcResiDoor_sashColour);
+            
+            document.querySelectorAll('.mullion-ext').forEach(function(el) {
+                var isTop = el.classList.contains('top');
+                setWeldDisplay(el, type, isTop ? 'Bottom' : 'Top', strokeColour);
+            });
+            
+            document.querySelectorAll('.midrail-end').forEach(function(el) {
+                var isLeft = el.classList.contains('left');
+                setWeldDisplay(el, type, isLeft ? 'Right' : 'Left', strokeColour);
+            });
+        }
+        
+        // ============================================
+        // MULLION FUNCTIONS
+        // ============================================
+        function pvcResiDoor_toggleMullions(panelIndex) {
+            pvcResiDoor_mullionsPerPanel[panelIndex] = (pvcResiDoor_mullionsPerPanel[panelIndex] + 1) % 3;
+            pvcResiDoor_rebuildPanelMullions(panelIndex, pvcResiDoor_mullionsPerPanel[panelIndex]);
+        }
+        
+        function pvcResiDoor_createMullionExtSvg(isTop) {
+            var y1 = isTop ? 9 : 0;
+            var y2 = isTop ? 0 : 9;
+            var strokeColour = getStrokeColour(pvcResiDoor_sashColour);
+            return '<svg viewBox="0 0 18 9" preserveAspectRatio="none" style="width:100%; height:100%; display:block;">' +
+                '<line x1="0" y1="' + y1 + '" x2="9" y2="' + y2 + '" stroke="' + strokeColour + '" stroke-width="1"/>' +
+                '<line x1="18" y1="' + y1 + '" x2="9" y2="' + y2 + '" stroke="' + strokeColour + '" stroke-width="1"/>' +
+                '</svg>';
+        }
+        
+        function pvcResiDoor_rebuildPanelMullions(panelIndex, mullionCount) {
+            var panel = document.getElementById('glassPanel' + (panelIndex + 1));
+            if (!panel) return;
+            
+            // Apply per-panel mullion width to CSS variable
+            var thicknessMm = pvcResiDoor_mullionThicknessMm[panelIndex] || MULLION_WIDTH_MM;
+            var thicknessPx = (thicknessMm - SASH_BORDER_MM * 2) / SCALE_FACTOR;
+
+            panel.innerHTML = '';
+            var paneCount = mullionCount + 1;
+            var paneLetters = ['A', 'B', 'C'];
+            
+            for (var i = 0; i < paneCount; i++) {
+                var pane = document.createElement('div');
+                pane.className = 'glass-pane';
+                pane.dataset.panel = panelIndex + 1;
+                pane.dataset.pane = paneLetters[i];
+                pane.dataset.paneId = (panelIndex + 1) + paneLetters[i];
+
+                // Apply flex-basis from mullionPositions if available
+                var positions = pvcResiDoor_mullionPositions[panelIndex] || [];
+                if (mullionCount > 0) {
+                    // Panes share the available width after mullions are subtracted
+                    // Use flex-grow proportionally instead of flex-basis percentage
+                    var bounds = [0].concat(positions.slice(0, mullionCount)).concat([1]);
+                    var frac = bounds[i + 1] - bounds[i];
+                    frac = Math.max(0.05, frac);
+                    pane.style.flex = frac + ' ' + frac + ' 0';
+                }
+
+                panel.appendChild(pane);
+                
+                if (i < mullionCount) {
+                    var mullion = document.createElement('div');
+                    mullion.className = 'mullion';
+                    mullion.style.width = thicknessPx + 'px';
+                    mullion.style.flexShrink = '0';
+
+                    // Dblclick to open mullion thickness popup
+                    (function(pi, mi) {
+                        mullion.addEventListener('dblclick', function(e) {
+                            e.stopPropagation();
+                            pvcResiDoor_openMullionPopup(pi);
+                        });
+                        mullion.addEventListener('mousedown', function(e) {
+                            if (e.button !== 0) return;
+                            e.stopPropagation();
+                            e.preventDefault();
+                            pvcResiDoor_onMullionDragStart(e, pi, mi);
+                        });
+                    })(panelIndex, i);
+                    
+                    var extTop = document.createElement('div');
+                    extTop.className = 'mullion-ext top';
+                    extTop.innerHTML = pvcResiDoor_createMullionExtSvg(true);
+                    mullion.appendChild(extTop);
+                    
+                    var extBottom = document.createElement('div');
+                    extBottom.className = 'mullion-ext bottom';
+                    extBottom.innerHTML = pvcResiDoor_createMullionExtSvg(false);
+                    mullion.appendChild(extBottom);
+                    
+                    // Add rail joint toggle to first mullion of panel 1 only
+                    if (panelIndex === 0 && i === 0) {
+                        var toggle = document.createElement('div');
+                        toggle.className = 'rail-joint-toggle mullion-toggle';
+                        toggle.id = 'railJointToggleMullion';
+                        toggle.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            pvcResiDoor_toggleRailJoint();
+                        });
+                        mullion.appendChild(toggle);
+                    }
+                    
+                    panel.appendChild(mullion);
+                }
+            }
+            
+            pvcResiDoor_updateRailJointType(pvcResiDoor_railJointType);
+            if (pvcResiDoor_sashColour) pvcResiDoor_applySashColour(pvcResiDoor_sashColour);
+            
+            // Re-render bars on all panes in this panel
+            for (var i = 0; i < paneCount; i++) {
+                var paneId = (panelIndex + 1) + paneLetters[i];
+                pvcResiDoor_renderPaneBars(paneId);
+            }
+        }
+        
+        // ============================================
+        // ASTRAGAL BAR SYSTEM
+        // Pane selection, bar rendering, dragging,
+        // nudging, equalisation, and apply-to-all.
+        // ============================================
+        
+        function pvcResiDoor_handlePaneClick(e, panelNum) {
+            // Ignore clicks on bar lines
+            if (e.target.closest('line')) return;
+            
+            var pane = e.target.closest('.glass-pane');
+            if (!pane) return;
+            
+            e.stopPropagation();
+            
+            // Deselect any selected bar
+            if (pvcResiDoor_selectedBar) {
+                pvcResiDoor_deselectBar();
+                return;
+            }
+            
+            var paneId = pane.dataset.paneId;
+            if (!paneId) {
+                // Fallback for panels without mullions
+                paneId = panelNum + 'A';
+            }
+            
+            pvcResiDoor_selectPane(paneId);
+        }
+        
+        function pvcResiDoor_selectPane(paneId) {
+            // Remove highlight from previous selection
+            if (pvcResiDoor_selectedPane) {
+                var prevPanes = document.querySelectorAll('.glass-pane.selected');
+                prevPanes.forEach(function(p) { p.classList.remove('selected'); });
+            }
+            
+            pvcResiDoor_selectedPane = paneId;
+            pvcResiDoor_selectedBar = null;
+            
+            // Highlight selected pane
+            var pane = document.querySelector('.glass-pane[data-pane-id="' + paneId + '"]');
+            if (pane) {
+                pane.classList.add('selected');
+            }
+            
+            // Get bar data for this pane
+            var barData = pvcResiDoor_paneBars[paneId];
+            if (!barData) {
+                barData = { type: 'none', vCount: 3, hCount: 3, vertical: [], horizontal: [] };
+                pvcResiDoor_paneBars[paneId] = barData;
+            }
+            
+            // Send to console
+            pvcResiDoor_sendToControl('paneSelected', {
+                display: 'Selected: Pane ' + paneId,
+                paneId: paneId,
+                barType: barData.type,
+                vCount: barData.vCount,
+                hCount: barData.hCount
+            });
+        }
+        
+        function pvcResiDoor_deselectPane() {
+            if (pvcResiDoor_selectedPane) {
+                var prevPanes = document.querySelectorAll('.glass-pane.selected');
+                prevPanes.forEach(function(p) { p.classList.remove('selected'); });
+            }
+            pvcResiDoor_selectedPane = null;
+            pvcResiDoor_selectedBar = null;
+            
+            pvcResiDoor_sendToControl('paneSelected', {
+                display: 'Selected: None',
+                paneId: null
+            });
+        }
+        
+        function pvcResiDoor_renderPaneBars(paneId) {
+            var pane = document.querySelector('.glass-pane[data-pane-id="' + paneId + '"]');
+            if (!pane) return;
+            
+            // Remove existing bars SVG
+            var existingSvg = pane.querySelector('.astragal-svg');
+            if (existingSvg) existingSvg.remove();
+            
+            var barData = pvcResiDoor_paneBars[paneId];
+            if (!barData || barData.type !== 'astragal') return;
+            
+            var paneWidth = pane.offsetWidth;
+            var paneHeight = pane.offsetHeight;
+            var glassBorder = GLASS_BORDER_MM / SCALE_FACTOR;
+
+            var svgWidth = paneWidth - (glassBorder * 2);
+            var svgHeight = paneHeight - (glassBorder * 2);
+            
+            if (svgWidth <= 0 || svgHeight <= 0) return;
+            
+            // Initialize bar positions if needed
+            if (barData.vertical.length !== barData.vCount - 1 || 
+                barData.horizontal.length !== barData.hCount - 1) {
+                pvcResiDoor_initializeBarPositions(paneId, svgWidth, svgHeight);
+            }
+            
+            // Create SVG
+            var svgns = "http://www.w3.org/2000/svg";
+            var svg = document.createElementNS(svgns, "svg");
+            svg.setAttribute("width", svgWidth);
+            svg.setAttribute("height", svgHeight);
+            svg.setAttribute("viewBox", "0 0 " + svgWidth + " " + svgHeight);
+            svg.style.position = 'absolute';
+            svg.style.left = '0';
+            svg.style.top = '0';
+            svg.style.pointerEvents = 'auto';
+            svg.style.zIndex = '60';
+            svg.classList.add('astragal-svg');
+            
+            // Draw vertical bars
+            barData.vertical.forEach(function(bar) {
+                var x = bar.x;
+                var isSelected = pvcResiDoor_selectedBar && 
+                    pvcResiDoor_selectedBar.paneId === paneId && 
+                    pvcResiDoor_selectedBar.id === bar.id;
+                
+                // Left border (white)
+                var leftBorder = document.createElementNS(svgns, "line");
+                leftBorder.setAttribute("x1", x - 2);
+                leftBorder.setAttribute("y1", 0);
+                leftBorder.setAttribute("x2", x - 2);
+                leftBorder.setAttribute("y2", svgHeight);
+                leftBorder.setAttribute("stroke", "#ffffff");
+                leftBorder.setAttribute("stroke-width", 1);
+                leftBorder.style.pointerEvents = "none";
+                svg.appendChild(leftBorder);
+                
+                // Main bar
+                var line = document.createElementNS(svgns, "line");
+                line.setAttribute("id", paneId + "-" + bar.id);
+                line.setAttribute("x1", x);
+                line.setAttribute("y1", 0);
+                line.setAttribute("x2", x);
+                line.setAttribute("y2", svgHeight);
+                line.setAttribute("stroke", isSelected ? "red" : "#efeeee");
+                line.setAttribute("stroke-width", isSelected ? 6 : 4);
+                line.style.cursor = "pointer";
+                line.addEventListener("click", function(e) {
+                    e.stopPropagation();
+                    pvcResiDoor_selectBar(paneId, 'vertical', bar.id);
+                });
+                svg.appendChild(line);
+                
+                // Right border (dark)
+                var rightBorder = document.createElementNS(svgns, "line");
+                rightBorder.setAttribute("x1", x + 2);
+                rightBorder.setAttribute("y1", 0);
+                rightBorder.setAttribute("x2", x + 2);
+                rightBorder.setAttribute("y2", svgHeight);
+                rightBorder.setAttribute("stroke", "#a0a0a0");
+                rightBorder.setAttribute("stroke-width", 1);
+                rightBorder.style.pointerEvents = "none";
+                svg.appendChild(rightBorder);
+            });
+            
+            // Draw horizontal bars
+            barData.horizontal.forEach(function(bar) {
+                var y = bar.y;
+                var isSelected = pvcResiDoor_selectedBar && 
+                    pvcResiDoor_selectedBar.paneId === paneId && 
+                    pvcResiDoor_selectedBar.id === bar.id;
+                
+                // Top border (white)
+                var topBorder = document.createElementNS(svgns, "line");
+                topBorder.setAttribute("x1", 0);
+                topBorder.setAttribute("y1", y - 2);
+                topBorder.setAttribute("x2", svgWidth);
+                topBorder.setAttribute("y2", y - 2);
+                topBorder.setAttribute("stroke", "#ffffff");
+                topBorder.setAttribute("stroke-width", 1);
+                topBorder.style.pointerEvents = "none";
+                svg.appendChild(topBorder);
+                
+                // Main bar
+                var line = document.createElementNS(svgns, "line");
+                line.setAttribute("id", paneId + "-" + bar.id);
+                line.setAttribute("x1", 0);
+                line.setAttribute("y1", y);
+                line.setAttribute("x2", svgWidth);
+                line.setAttribute("y2", y);
+                line.setAttribute("stroke", isSelected ? "red" : "#efeeee");
+                line.setAttribute("stroke-width", isSelected ? 6 : 4);
+                line.style.cursor = "pointer";
+                line.addEventListener("click", function(e) {
+                    e.stopPropagation();
+                    pvcResiDoor_selectBar(paneId, 'horizontal', bar.id);
+                });
+                svg.appendChild(line);
+                
+                // Bottom border (dark)
+                var bottomBorder = document.createElementNS(svgns, "line");
+                bottomBorder.setAttribute("x1", 0);
+                bottomBorder.setAttribute("y1", y + 2);
+                bottomBorder.setAttribute("x2", svgWidth);
+                bottomBorder.setAttribute("y2", y + 2);
+                bottomBorder.setAttribute("stroke", "#a0a0a0");
+                bottomBorder.setAttribute("stroke-width", 1);
+                bottomBorder.style.pointerEvents = "none";
+                svg.appendChild(bottomBorder);
+            });
+            
+            pane.appendChild(svg);
+        }
+        
+        function pvcResiDoor_initializeBarPositions(paneId, svgWidth, svgHeight) {
+            var barData = pvcResiDoor_paneBars[paneId];
+            if (!barData) return;
+            
+            // Initialize vertical bars
+            barData.vertical = [];
+            for (var i = 0; i < barData.vCount - 1; i++) {
+                var x = Math.round((svgWidth / barData.vCount) * (i + 1));
+                barData.vertical.push({ id: 'v-' + i, x: x });
+            }
+            
+            // Initialize horizontal bars
+            barData.horizontal = [];
+            for (var i = 0; i < barData.hCount - 1; i++) {
+                var y = Math.round((svgHeight / barData.hCount) * (i + 1));
+                barData.horizontal.push({ id: 'h-' + i, y: y });
+            }
+        }
+        
+        function pvcResiDoor_selectBar(paneId, type, barId) {
+            // Toggle off if clicking same bar
+            if (pvcResiDoor_selectedBar && 
+                pvcResiDoor_selectedBar.paneId === paneId && 
+                pvcResiDoor_selectedBar.id === barId) {
+                pvcResiDoor_deselectBar();
+                return;
+            }
+            
+            pvcResiDoor_selectedBar = { paneId: paneId, type: type, id: barId };
+            pvcResiDoor_renderPaneBars(paneId);
+            pvcResiDoor_sendToControl('barSelected', { type: type });
+        }
+        
+        function pvcResiDoor_deselectBar() {
+            if (pvcResiDoor_selectedBar) {
+                var paneId = pvcResiDoor_selectedBar.paneId;
+                pvcResiDoor_selectedBar = null;
+                pvcResiDoor_renderPaneBars(paneId);
+                pvcResiDoor_sendToControl('barDeselected', {});
+            }
+        }
+        
+        function pvcResiDoor_nudgeBar(delta) {
+            if (!pvcResiDoor_selectedBar) return;
+            
+            var paneId = pvcResiDoor_selectedBar.paneId;
+            var barData = pvcResiDoor_paneBars[paneId];
+            if (!barData) return;
+            
+            var bars = barData[pvcResiDoor_selectedBar.type];
+            var bar = bars.find(function(b) { return b.id === pvcResiDoor_selectedBar.id; });
+            if (!bar) return;
+            
+            var pane = document.querySelector('.glass-pane[data-pane-id="' + paneId + '"]');
+            if (!pane) return;
+            
+            var svg = pane.querySelector('.astragal-svg');
+            if (!svg) return;
+            
+            var svgWidth = parseInt(svg.getAttribute('width'));
+            var svgHeight = parseInt(svg.getAttribute('height'));
+            
+            if (pvcResiDoor_selectedBar.type === 'vertical') {
+                bar.x = Math.max(0, Math.min(svgWidth, bar.x + delta));
+            } else {
+                bar.y = Math.max(0, Math.min(svgHeight, bar.y + delta));
+            }
+            
+            pvcResiDoor_renderPaneBars(paneId);
+        }
+        
+        function pvcResiDoor_equalizeVertical() {
+            if (!pvcResiDoor_selectedPane) return;
+            
+            var paneId = pvcResiDoor_selectedPane;
+            var barData = pvcResiDoor_paneBars[paneId];
+            if (!barData) return;
+            
+            var pane = document.querySelector('.glass-pane[data-pane-id="' + paneId + '"]');
+            if (!pane) return;
+            
+            var svg = pane.querySelector('.astragal-svg');
+            if (!svg) return;
+            
+            var svgWidth = parseInt(svg.getAttribute('width'));
+            
+            barData.vertical.forEach(function(bar, i) {
+                bar.x = (svgWidth / barData.vCount) * (i + 1);
+            });
+            
+            pvcResiDoor_renderPaneBars(paneId);
+        }
+        
+        function pvcResiDoor_equalizeHorizontal() {
+            if (!pvcResiDoor_selectedPane) return;
+            
+            var paneId = pvcResiDoor_selectedPane;
+            var barData = pvcResiDoor_paneBars[paneId];
+            if (!barData) return;
+            
+            var pane = document.querySelector('.glass-pane[data-pane-id="' + paneId + '"]');
+            if (!pane) return;
+            
+            var svg = pane.querySelector('.astragal-svg');
+            if (!svg) return;
+            
+            var svgHeight = parseInt(svg.getAttribute('height'));
+            
+            barData.horizontal.forEach(function(bar, i) {
+                bar.y = (svgHeight / barData.hCount) * (i + 1);
+            });
+            
+            pvcResiDoor_renderPaneBars(paneId);
+        }
+        
+        function pvcResiDoor_updateBarType(type) {
+            if (!pvcResiDoor_selectedPane) return;
+            
+            var paneId = pvcResiDoor_selectedPane;
+            var barData = pvcResiDoor_paneBars[paneId];
+            if (!barData) {
+                barData = { type: 'none', vCount: 3, hCount: 3, vertical: [], horizontal: [] };
+                pvcResiDoor_paneBars[paneId] = barData;
+            }
+            
+            barData.type = type;
+            pvcResiDoor_renderPaneBars(paneId);
+        }
+        
+        function pvcResiDoor_updateBarCounts(vCount, hCount) {
+            if (!pvcResiDoor_selectedPane) return;
+            
+            var paneId = pvcResiDoor_selectedPane;
+            var barData = pvcResiDoor_paneBars[paneId];
+            if (!barData) return;
+            
+            barData.vCount = vCount;
+            barData.hCount = hCount;
+            barData.vertical = [];
+            barData.horizontal = [];
+            
+            pvcResiDoor_renderPaneBars(paneId);
+        }
+        
+        function pvcResiDoor_applyToAllPanes() {
+            if (!pvcResiDoor_selectedPane) return;
+            
+            var sourceData = pvcResiDoor_paneBars[pvcResiDoor_selectedPane];
+            if (!sourceData) return;
+            
+            // Copy bar type and counts to all panes
+            Object.keys(pvcResiDoor_paneBars).forEach(function(paneId) {
+                if (paneId !== pvcResiDoor_selectedPane) {
+                    pvcResiDoor_paneBars[paneId].type = sourceData.type;
+                    pvcResiDoor_paneBars[paneId].vCount = sourceData.vCount;
+                    pvcResiDoor_paneBars[paneId].hCount = sourceData.hCount;
+                    pvcResiDoor_paneBars[paneId].vertical = [];
+                    pvcResiDoor_paneBars[paneId].horizontal = [];
+                }
+                pvcResiDoor_renderPaneBars(paneId);
+            });
+        }
+        
+        function pvcResiDoor_removeFromAllPanes() {
+            // Remove bars from all panes
+            Object.keys(pvcResiDoor_paneBars).forEach(function(paneId) {
+                pvcResiDoor_paneBars[paneId].type = 'none';
+                pvcResiDoor_paneBars[paneId].vertical = [];
+                pvcResiDoor_paneBars[paneId].horizontal = [];
+                pvcResiDoor_renderPaneBars(paneId);
+            });
+            
+            // Update console bar type dropdown
+            pvcResiDoor_sendToControl('barsRemoved', {});
+        }
+        
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        function pvcResiDoor_initialize() {
+            console.log('🚀 Resi Door initializing...');
+            
+            // Calculate initial scale factor based on height
+            pvcResiDoor_setScaleFactorFromDimensions();
+            console.log('📐 Initial scale factor:', SCALE_FACTOR, pvcResiDoor_isInBay() ? '(bay mode)' : '(single product)');
+            
+            // Panel click handlers — single click selects pane for bars
+            var panel1 = document.getElementById('glassPanel1');
+            var panel2 = document.getElementById('glassPanel2');
+            var panel3 = document.getElementById('glassPanel3');
+            
+            // Single-click on glass-pane selects pane for bars
+            if (panel1) panel1.addEventListener('click', function(e) { if (!pvcResiDoor_suppressClick) pvcResiDoor_handlePaneClick(e, 1); });
+            if (panel2) panel2.addEventListener('click', function(e) { if (!pvcResiDoor_suppressClick) pvcResiDoor_handlePaneClick(e, 2); });
+            if (panel3) panel3.addEventListener('click', function(e) { if (!pvcResiDoor_suppressClick) pvcResiDoor_handlePaneClick(e, 3); });
+
+            // Draw-to-split handlers (midrails and mullions)
+            pvcResiDoor_addDrawHandlers();
+            
+            // Frame head trickle vent hit area
+            var frameHeadHit = document.getElementById('pvcResiDoorFrameTopEdge');
+            if (frameHeadHit) {
+                frameHeadHit.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    pvcResiDoor_openFrameVentPopup();
+                });
+            }
+
+            // Door head (sash) trickle vent hit area
+            var sashHeadHit = document.getElementById('pvcResiDoorSashHeadHit');
+            if (sashHeadHit) {
+                sashHeadHit.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    pvcResiDoor_openSashVentPopup();
+                });
+            }
+
+            // Frame corner toggle
+            var frameCornerToggle = document.getElementById('frameCornerToggle');
+            if (frameCornerToggle) {
+                frameCornerToggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    pvcResiDoor_toggleFrameExternalCorner();
+                });
+            }
+            
+            // Sash corner toggle
+            var sashCornerToggle = document.getElementById('sashCornerToggle');
+            if (sashCornerToggle) {
+                sashCornerToggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    pvcResiDoor_toggleSashExternalCorner();
+                });
+            }
+            
+            // Rail joint toggles
+            var mullionToggle = document.getElementById('railJointToggleMullion');
+            var midrailToggle = document.getElementById('railJointToggleMidrail');
+            
+            if (mullionToggle) {
+                mullionToggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    pvcResiDoor_toggleRailJoint();
+                });
+            }
+            if (midrailToggle) {
+                midrailToggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    pvcResiDoor_toggleRailJoint();
+                });
+            }
+            
+            // Rebuild all panels to add pane data attributes
+            for (var i = 0; i < pvcResiDoor_mullionsPerPanel.length; i++) {
+                pvcResiDoor_rebuildPanelMullions(i, pvcResiDoor_mullionsPerPanel[i]);
+            }
+            
+            // Initialize states
+            pvcResiDoor_updateFrameExternalCorner(pvcResiDoor_frameExternalCorner);
+            pvcResiDoor_updateSashExternalCorner(pvcResiDoor_sashExternalCorner);
+            pvcResiDoor_updateRailJointType(pvcResiDoor_railJointType);
+            pvcResiDoor_updateRowVisibility(); // Set initial row visibility based on midrails
+            pvcResiDoor_redistributeRowHeights(); // Sync row heights to match ROW_COUNT
+            pvcResiDoor_applyAllVisuals(); // Apply both width and height with correct scale factor
+            pvcResiDoor_renderVent(); // Render trickle vent if set
+            pvcResiDoor_renderSashVent(); // Render door head vent if set
+            pvcResiDoor_buildMidrailDragHandles(); // Build midrail drag handles if midrails exist
+
+            // Row measure click-to-unlock — readonly inputs don't block click events
+            for (var r = 1; r <= 3; r++) {
+                (function(rowNum) {
+                    var inp = document.querySelector('#row' + rowNum + ' .row-measure input');
+                    if (inp) {
+                        inp.addEventListener('click', function() {
+                            if (this.readOnly) {
+                                delete pvcResiDoor_lockedRows[rowNum];
+                                this.readOnly        = false;
+                                this.style.background = 'white';
+                                this.style.cursor    = 'text';
+                                this.select();
+                            }
+                        });
+                    }
+                })(r);
+            }
+
+            // Send initial state to console
+            pvcResiDoor_sendInitialStateToConsole();
+            
+            console.log('✅ Resi Door initialization complete');
+        }
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', pvcResiDoor_initialize);
+        } else {
+            pvcResiDoor_initialize();
+        }
+        
+        // ============================================
+        // POSTMESSAGE COMMUNICATION
+        // ============================================
+        var PVC_RESI_DOOR_PRODUCT_TYPE = 'pvc-resi-door';
+        
+        window.addEventListener('message', function(event) {
+            if (!event.data || !event.data.source) return;
+            
+            if (event.data.source === 'bubble-control' && event.data.command === 'loadDefaults') {
+                // New product — load data but force midrails to 0 regardless of schema defaults
+                var defaults = event.data.data || {};
+                if (defaults.midrailHeights) {
+                    defaults.midrailHeights.midrail1 = 0;
+                    defaults.midrailHeights.midrail2 = 0;
+                }
+                pvcResiDoor_loadProductData(defaults);
+                return;
+            }
+
+            if (event.data.source === 'bubble-control' && event.data.command === 'loadProduct') {
+                pvcResiDoor_loadProductData(event.data.data || {});
+                return;
+            }
+
+            // ── Embedded mode commands (from pvc-combined-frame parent) ──────
+            if ((event.data.source === 'bubble-control' || event.data.source === 'combined-frame-master') && event.data.command === 'enterEmbeddedMode') {
+                pvcResiDoor_enterEmbeddedMode();
+                return;
+            }
+
+            if ((event.data.source === 'bubble-control' || event.data.source === 'combined-frame-master') && event.data.command === 'updateDimensions') {
+                var d = event.data.data || {};
+                // Store casement midrail positions for snap/auto-align
+                if (d.casementMidrailsMm) {
+                    pvcResiDoor_casementMidrailsMm = d.casementMidrailsMm;
+                }
+                // Override SCALE_FACTOR to match parent casement
+                if (d.scaleFactor) {
+                    SCALE_FACTOR = d.scaleFactor;
+                    pvcResiDoor_recalcScaleDeps();
+                }
+                // Set width input
+                if (d.widthMm) {
+                    var wInp = document.querySelector('.top-measure input');
+                    if (wInp) { wInp.value = d.widthMm; }
+                }
+                // Set height input (rightMeasure total) and row 1
+                if (d.heightMm) {
+                    var hInp = document.querySelector('#rightMeasure input');
+                    if (hInp) { hInp.value = d.heightMm; }
+                    var r1 = document.querySelector('#row1 .row-measure input');
+                    if (r1) r1.value = d.heightMm;
+                }
+                pvcResiDoor_redistributeRowHeights();
+                pvcResiDoor_applyAllVisuals();
+                pvcResiDoor_updateRowVisibility();
+                // Re-apply embedded overrides AFTER applyAllVisuals and updateRowVisibility
+                pvcResiDoor_applyEmbeddedOverrides();
+                // Ensure wrapper has no padding/margin and is anchored top-left
+                var wrapper = document.querySelector('.wrapper');
+                if (wrapper) {
+                    wrapper.style.padding         = '0';
+                    wrapper.style.margin          = '0';
+                    wrapper.style.transform       = 'none';
+                    wrapper.style.transformOrigin = 'top left';
+                }
+                // Final step: scale wrapper to fill overlay exactly
+                if (pvcResiDoor_embeddedMode && d.overlayW && d.overlayH) {
+                    pvcResiDoor_lastOverlayW = d.overlayW;
+                    pvcResiDoor_lastOverlayH = d.overlayH;
+                    setTimeout(function() {
+                        var wrapper2 = document.querySelector('.wrapper');
+                        if (!wrapper2) return;
+                        var natW = wrapper2.scrollWidth;
+                        var natH = wrapper2.scrollHeight;
+                        if (natW > 0 && natH > 0) {
+                            var scale = Math.min(d.overlayW / natW, d.overlayH / natH);
+                            wrapper2.style.transform       = 'scale(' + scale + ')';
+                            wrapper2.style.transformOrigin = 'top left';
+                            console.log('🔗 resi-door: scale applied', scale, 'natW='+natW+' natH='+natH+' overlayW='+d.overlayW+' overlayH='+d.overlayH);
+                        }
+                    }, 50);
+                }
+                return;
+            }
+            
+            if (event.data.source === 'control-panel') {
+                if (event.data.command === 'requestInitialState') {
+                    pvcResiDoor_sendInitialStateToConsole();
+                    return;
+                }
+                pvcResiDoor_handleControlCommand(event.data.command, event.data.data);
+            }
+            
+            // Save button requests
+            if (event.data.source === 'save-button') {
+                if (event.data.command === 'getProductData') {
+                    var data = pvcResiDoor_collectProductData();
+                    window.parent.postMessage({
+                        source: 'product-display',
+                        command: 'productData',
+                        data: data
+                    }, '*');
+                }
+                if (event.data.command === 'getScreenshot') {
+                    pvcResiDoor_captureScreenshot();
+                }
+            }
+        });
+        
+        function pvcResiDoor_collectProductData() {
+            var widthInput = document.querySelector('.top-measure input');
+            var width = parseInt(widthInput ? widthInput.value : 900);
+            
+            var rowHeights = {};
+            for (var i = 1; i <= ROW_COUNT; i++) {
+                var input = document.querySelector('#row' + i + ' .row-measure input');
+                rowHeights[i] = parseInt(input ? input.value : 700);
+            }
+            
+            var totalInput = document.querySelector('#rightMeasure input');
+            var totalHeight = parseInt(totalInput ? totalInput.value : 2100);
+            
+            // Calculate frame height (total minus cill if visible)
+            var frameHeight = pvcResiDoor_cillVisible ? totalHeight - pvcResiDoor_cillHeight : totalHeight;
+            
+            return {
+                productType: PVC_RESI_DOOR_PRODUCT_TYPE,
+                version: '1.0',
+                timestamp: new Date().toISOString(),
+                frame: {
+                    width: width,
+                    height: frameHeight
+                },
+                grid: {
+                    cols: 1,
+                    rows: ROW_COUNT
+                },
+                mullionsPerPanel: pvcResiDoor_mullionsPerPanel,
+                mullionThicknessMm: pvcResiDoor_mullionThicknessMm,
+                mullionPositions: pvcResiDoor_mullionPositions,
+                mullionGroups: pvcResiDoor_mullionGroups,
+                mullionGroupCounter: pvcResiDoor_mullionGroupCounter,
+                cornerTypes: {
+                    frameExternalCorner: pvcResiDoor_frameExternalCorner,
+                    frameInternalCorner: pvcResiDoor_frameInternalCorner,
+                    sashExternalCorner: pvcResiDoor_sashExternalCorner,
+                    sashInternalCorner: pvcResiDoor_sashInternalCorner,
+                    railJoint: pvcResiDoor_railJointType
+                },
+                cillHeight: pvcResiDoor_cillHeight,
+                cillProjection: pvcResiDoor_cillProjection,
+                ventSize: pvcResiDoor_ventSize,
+                sashVentSize: pvcResiDoor_sashVentSize,
+                openDirection: pvcResiDoor_openDirection,
+                doorThreshold: pvcResiDoor_doorThreshold,
+                weatherBar: pvcResiDoor_weatherBar,
+                doorCylinder: pvcResiDoor_doorCylinder,
+                midrailHeights: {
+                    midrail1: pvcResiDoor_midrail1Height,
+                    midrail2: pvcResiDoor_midrail2Height
+                },
+                panelMaterials: pvcResiDoor_panelMaterials,
+                measurements: {
+                    rows: rowHeights,
+                    lockedRows: pvcResiDoor_lockedRows
+                },
+                colours: {
+                    externalFrame: pvcResiDoor_frameColourObj,
+                    externalSash: pvcResiDoor_sashColourObj,
+                    internalFrame: pvcResiDoor_internalFrameColourObj,
+                    internalSash: pvcResiDoor_internalSashColourObj
+                },
+                paneBars: pvcResiDoor_paneBars,
+                profileName: pvcResiDoor_savedProfileName,
+                rangeName:   pvcResiDoor_savedRangeName
+            };
+        }
+        
+        function pvcResiDoor_captureScreenshot() {
+            var wrapper = document.querySelector('.wrapper');
+            var rowsContainer = document.querySelector('.rows-container');
+            
+            if (!wrapper || !rowsContainer) {
+                window.parent.postMessage({
+                    source: 'product-display',
+                    command: 'screenshotError',
+                    error: 'Required elements not found'
+                }, '*');
+                return;
+            }
+            
+            var originalScaleFactor = SCALE_FACTOR;
+
+            // Switch to SCALE_FACTOR 2.5 for screenshot — all products capture at 2.5
+            // for consistent image sizes regardless of working scale.
+            var wrapper = document.querySelector('.wrapper');
+            var scaleWrap = document.getElementById('product-scale-wrap');
+            var bodyPrevHeight = document.body.style.height;
+            var scaleWrapPrevHeight = scaleWrap ? scaleWrap.style.height : '';
+            document.body.style.height = 'auto';
+            if (scaleWrap) scaleWrap.style.height = 'auto';
+
+            SCALE_FACTOR = 2.5;
+            pvcResiDoor_applyAllVisuals();
+            pvcResiDoor_updateRowVisibility();
+            if (wrapper) wrapper.style.transform = 'scale(1)';
+
+            // Strip counter-scale transform, set readable input size — matches casement captureScreenshot exactly
+            var allInputs = wrapper.querySelectorAll('input');
+            allInputs.forEach(function(inp) {
+                inp.style.transform       = 'none';
+                inp.style.transformOrigin = '';
+                inp.style.width           = '80px';
+                inp.style.height          = '27px';
+                inp.style.fontSize        = '20px';
+                inp.style.lineHeight      = '27px';
+                inp.style.padding         = '4px';
+                inp.style.textAlign       = 'center';
+                inp.style.boxSizing       = 'border-box';
+                inp.readOnly              = false;
+                inp.style.background      = 'white';
+                inp.style.cursor          = '';
+            });
+
+            
+            // Get measurement elements
+            var measurementElements = [
+                document.querySelector('.top-measure'),
+                document.querySelector('.main-area > .rows-container'),
+                document.getElementById('rightMeasure')
+            ];
+            var rowMeasures = document.querySelectorAll('.row-measure');
+            
+            // Function to restore scale after screenshots
+            function restoreScale() {
+                // Restore body and scale wrap heights
+                document.body.style.height = bodyPrevHeight;
+                if (scaleWrap) scaleWrap.style.height = scaleWrapPrevHeight;
+                // Restore inputs and re-apply lock state
+                allInputs.forEach(function(inp) {
+                    inp.style.transform       = '';
+                    inp.style.transformOrigin = '';
+                    inp.style.width           = '';
+                    inp.style.height          = '';
+                    inp.style.fontSize        = '';
+                    inp.style.lineHeight      = '';
+                    inp.style.padding         = '';
+                    inp.style.textAlign       = '';
+                    inp.style.boxSizing       = '';
+                    inp.style.background      = '';
+                    inp.style.cursor          = '';
+                });
+                pvcResiDoor_applyRowLockState();
+                SCALE_FACTOR = originalScaleFactor;
+                pvcResiDoor_applyAllVisuals();
+                pvcResiDoor_updateRowVisibility();
+                pvcResiDoor_autoScale();
+            }
+            
+            // Capture WITH measurements
+            html2canvas(wrapper, {
+                backgroundColor: '#ffffff',
+                scale: 2,
+                logging: false
+            }).then(function(canvasWithMeasurements) {
+                var imageWithMeasurements = canvasWithMeasurements.toDataURL('image/png');
+                
+                // Hide measurements (visibility keeps space)
+                document.querySelector('.top-measure').style.visibility = 'hidden';
+                document.getElementById('rightMeasure').style.visibility = 'hidden';
+                rowMeasures.forEach(function(el) { el.style.visibility = 'hidden'; });
+                
+                // Wait for DOM update
+                setTimeout(function() {
+                    // Capture WITHOUT measurements
+                    html2canvas(wrapper, {
+                        backgroundColor: '#ffffff',
+                        scale: 2,
+                        logging: false
+                    }).then(function(canvasWithoutMeasurements) {
+                        var imageWithoutMeasurements = canvasWithoutMeasurements.toDataURL('image/png');
+                        document.querySelector('.top-measure').style.visibility = 'visible';
+                        document.getElementById('rightMeasure').style.visibility = 'visible';
+                        rowMeasures.forEach(function(el) { el.style.visibility = 'visible'; });
+                        restoreScale();
+                        window.parent.postMessage({
+                            source: 'product-display',
+                            command: 'screenshotData',
+                            data: {
+                                withMeasurements: imageWithMeasurements,
+                                withoutMeasurements: imageWithoutMeasurements,
+                                cropped: imageWithMeasurements
+                            }
+                        }, '*');
+                    }).catch(function(err) {
+                        restoreScale();
+                        window.parent.postMessage({ source: 'product-display', command: 'screenshotError', error: err.message }, '*');
+                    });
+                }, 100);
+            }).catch(function(err) {
+                restoreScale();
+                window.parent.postMessage({
+                    source: 'product-display',
+                    command: 'screenshotError',
+                    error: err.message
+                }, '*');
+            });
+        }
+        
+        function pvcResiDoor_sendToControl(command, data) {
+            var message = { source: 'product-display', command: command, data: data };
+            window.postMessage(message, '*');
+            try { window.parent.postMessage(message, '*'); } catch(e) {}
+        }
+        
+        function pvcResiDoor_sendInitialStateToConsole() {
+            var initialState = {
+                source: 'product-display',
+                command: 'initialState',
+                data: {
+                    productType: PVC_RESI_DOOR_PRODUCT_TYPE,
+                    grid: { cols: 1, rows: ROW_COUNT },
+                    cornerTypes: {
+                        frameExternalCorner: pvcResiDoor_frameExternalCorner,
+                        frameInternalCorner: pvcResiDoor_frameInternalCorner,
+                        sashExternalCorner: pvcResiDoor_sashExternalCorner,
+                        sashInternalCorner: pvcResiDoor_sashInternalCorner,
+                        railJoint: pvcResiDoor_railJointType
+                    },
+                    cillHeight: pvcResiDoor_cillHeight,
+                    cillProjection: pvcResiDoor_cillProjection,
+                    ventSize: pvcResiDoor_ventSize,
+                    sashVentSize: pvcResiDoor_sashVentSize,
+                    openDirection: pvcResiDoor_openDirection,
+                    doorThreshold: pvcResiDoor_doorThreshold,
+                    weatherBar: pvcResiDoor_weatherBar,
+                    doorCylinder: pvcResiDoor_doorCylinder,
+                    midrailHeights: {
+                        midrail1: pvcResiDoor_midrail1Height,
+                        midrail2: pvcResiDoor_midrail2Height
+                    },
+                    panelMaterials: pvcResiDoor_panelMaterials,
+                    externalFrameColour: pvcResiDoor_frameColourObj,
+                    externalSashColour: pvcResiDoor_sashColourObj,
+                    internalFrameColour: pvcResiDoor_internalFrameColourObj,
+                    internalSashColour: pvcResiDoor_internalSashColourObj
+                }
+            };
+            
+            window.postMessage(initialState, '*');
+            try { window.parent.postMessage(initialState, '*'); } catch(e) {}
+        }
+        
+        function pvcResiDoor_sendStateToConsole() {
+            pvcResiDoor_sendInitialStateToConsole();
+        }
+        
+        function pvcResiDoor_handleControlCommand(command, data) {
+            console.log('🟢 Resi Door received:', command, data);
+            switch(command) {
+                case 'updateProfile':
+                    if (data && data.profileName !== undefined) pvcResiDoor_savedProfileName = data.profileName;
+                    break;
+                case 'updateRange':
+                    if (data && data.rangeName !== undefined) pvcResiDoor_savedRangeName = data.rangeName;
+                    break;
+                case 'updateColour':
+                    if (data.target === 'externalFrame') {
+                        pvcResiDoor_frameColourObj = data.colour;
+                        if (data.colour && data.colour.hex) pvcResiDoor_applyFrameColour(data.colour.hex);
+                    } else if (data.target === 'externalSash' || data.target === 'doorSash') {
+                        pvcResiDoor_sashColourObj = data.colour;
+                        if (data.colour && data.colour.hex) pvcResiDoor_applySashColour(data.colour.hex);
+                    } else if (data.target === 'internalFrame') {
+                        pvcResiDoor_internalFrameColourObj = data.colour;
+                    } else if (data.target === 'internalSash') {
+                        pvcResiDoor_internalSashColourObj = data.colour;
+                    }
+                    break;
+                case 'updateFrameExternalCorner':
+                    pvcResiDoor_updateFrameExternalCorner(data.type);
+                    break;
+                case 'updateFrameInternalCorner':
+                    pvcResiDoor_frameInternalCorner = data.type;
+                    break;
+                case 'updateSashExternalCorner':
+                    pvcResiDoor_updateSashExternalCorner(data.type);
+                    break;
+                case 'updateSashInternalCorner':
+                    pvcResiDoor_sashInternalCorner = data.type;
+                    break;
+                case 'updateRailJoint':
+                    pvcResiDoor_updateRailJointType(data.type);
+                    break;
+                case 'updateMidrail1Height':
+                    pvcResiDoor_updateMidrail1Height(data.height);
+                    pvcResiDoor_buildMidrailDragHandles();
+                    break;
+                case 'updateMidrail2Height':
+                    pvcResiDoor_updateMidrail2Height(data.height);
+                    pvcResiDoor_buildMidrailDragHandles();
+                    break;
+                case 'updatePanelMaterial':
+                    pvcResiDoor_updatePanelMaterial(data.panel, data.material);
+                    break;
+                case 'updateCillHeight':
+                    pvcResiDoor_updateCillHeight(data.height);
+                    break;
+                case 'updateCillProjection':
+                    pvcResiDoor_updateCillProjection(data.projection);
+                    break;
+                case 'setVentSize':
+                    pvcResiDoor_setVentSize(data.width);
+                    break;
+                case 'clearVent':
+                    pvcResiDoor_clearVent();
+                    break;
+                case 'setSashVentSize':
+                    pvcResiDoor_setSashVentSize(data.width);
+                    break;
+                case 'clearSashVent':
+                    pvcResiDoor_clearSashVent();
+                    break;
+                case 'setOpenDirection':
+                    pvcResiDoor_setOpenDirection(data.direction);
+                    break;
+                case 'updateDoorThreshold':
+                    pvcResiDoor_doorThreshold = data.doorThreshold;
+                    break;
+                case 'updateWeatherBar':
+                    pvcResiDoor_weatherBar = data.weatherBar;
+                    break;
+                case 'updateDoorCylinder':
+                    pvcResiDoor_doorCylinder = data.doorCylinder;
+                    break;
+                case 'updateBarType':
+                    pvcResiDoor_updateBarType(data.type || data.value);
+                    break;
+                case 'updateBars':
+                    pvcResiDoor_updateBarCounts(data.vCount || data.vertical, data.hCount || data.horizontal);
+                    break;
+                case 'equalizeVertical':
+                    pvcResiDoor_equalizeVertical();
+                    break;
+                case 'equalizeHorizontal':
+                    pvcResiDoor_equalizeHorizontal();
+                    break;
+                case 'nudgeBar':
+                    pvcResiDoor_nudgeBar(data.delta);
+                    break;
+                case 'applyToAll':
+                    pvcResiDoor_applyToAllPanes();
+                    break;
+                case 'removeFromAll':
+                    pvcResiDoor_removeFromAllPanes();
+                    break;
+                case 'fullReset':
+                    pvcResiDoor_fullReset();
+                    break;
+            }
+        }
+        
+        function pvcResiDoor_loadProductData(data) {
+            console.log('📐 Loading product data:', data);
+            
+            // Load dimensions - support both new (frame) and old (dimensions) format
+            var width, height;
+            if (data.frame) {
+                width = data.frame.width;
+                height = data.frame.height;
+            } else if (data.dimensions) {
+                // Legacy format
+                width = data.dimensions.width;
+                height = data.dimensions.totalHeight;
+            }
+            
+            // Set width input
+            var widthInput = document.querySelector('.top-measure input');
+            if (widthInput && width) widthInput.value = width;
+            
+            // Load cill - support both new (cillHeight) and old (cill.height) format
+            if (typeof data.cillHeight !== 'undefined') {
+                pvcResiDoor_updateCillHeight(data.cillHeight);
+            } else if (data.cill && typeof data.cill.height !== 'undefined') {
+                pvcResiDoor_updateCillHeight(data.cill.height);
+            }
+            
+            if (typeof data.cillProjection !== 'undefined') {
+                pvcResiDoor_updateCillProjection(data.cillProjection);
+            } else if (data.cill && typeof data.cill.projection !== 'undefined') {
+                pvcResiDoor_updateCillProjection(data.cill.projection);
+            }
+            
+            // Calculate total height (frame + cill if visible)
+            var totalHeight = pvcResiDoor_cillVisible ? height + pvcResiDoor_cillHeight : height;
+            var heightInput = document.querySelector('#rightMeasure input');
+            if (heightInput && totalHeight) heightInput.value = totalHeight;
+            
+            // Load trickle vent
+            if (typeof data.ventSize !== 'undefined') {
+                pvcResiDoor_setVentSize(data.ventSize);
+            }
+            
+            // Load door head vent
+            if (typeof data.sashVentSize !== 'undefined') {
+                pvcResiDoor_setSashVentSize(data.sashVentSize);
+            }
+            
+            // Load door open direction
+            if (typeof data.openDirection !== 'undefined') {
+                pvcResiDoor_setOpenDirection(data.openDirection);
+            }
+
+            // Load door threshold
+            if (typeof data.doorThreshold !== 'undefined') {
+                pvcResiDoor_doorThreshold = data.doorThreshold;
+            }
+
+            // Load weather bar
+            if (typeof data.weatherBar !== 'undefined') {
+                pvcResiDoor_weatherBar = data.weatherBar;
+            }
+
+            // Load door cylinder
+            if (typeof data.doorCylinder !== 'undefined') {
+                pvcResiDoor_doorCylinder = data.doorCylinder;
+            }
+            
+            // Load midrail heights
+            if (data.midrailHeights) {
+                if (typeof data.midrailHeights.midrail1 !== 'undefined') {
+                    pvcResiDoor_midrail1Height = data.midrailHeights.midrail1;
+                }
+                if (typeof data.midrailHeights.midrail2 !== 'undefined') {
+                    pvcResiDoor_midrail2Height = data.midrailHeights.midrail2;
+                }
+                // Only mark synced if midrails actually exist — means this is a saved product
+                // with real thickness values. New products load with 0,0 and should still sync
+                // on the user's first thickness change.
+                if (pvcResiDoor_midrail1Height > 0 || pvcResiDoor_midrail2Height > 0) {
+                    pvcResiDoor_midrailsSynced = true;
+                }
+            }
+            
+            // Update row visibility based on midrails — sets ROW_COUNT correctly
+            pvcResiDoor_updateRowVisibility();
+
+            // Load row heights — must happen AFTER updateRowVisibility so ROW_COUNT is correct
+            // Loop to 3 (all rows) not ROW_COUNT so rows 2+3 get values even if currently hidden
+            if (data.measurements && data.measurements.rows) {
+                for (var i = 1; i <= 3; i++) {
+                    var input = document.querySelector('#row' + i + ' .row-measure input');
+                    if (input && data.measurements.rows[i]) {
+                        input.value = data.measurements.rows[i];
+                    }
+                }
+                // Restore locked rows
+                pvcResiDoor_lockedRows = data.measurements.lockedRows || {};
+                pvcResiDoor_applyRowLockState();
+            } else if (data.dimensions && data.dimensions.rowHeights) {
+                // Legacy array format
+                for (var i = 0; i < data.dimensions.rowHeights.length; i++) {
+                    var input = document.querySelector('#row' + (i + 1) + ' .row-measure input');
+                    if (input) input.value = data.dimensions.rowHeights[i];
+                }
+            }
+            
+            // Load panel materials
+            if (data.panelMaterials && Array.isArray(data.panelMaterials)) {
+                pvcResiDoor_panelMaterials = data.panelMaterials;
+            }
+            
+            // Calculate and apply scale factor
+            pvcResiDoor_setScaleFactorFromDimensions();
+            console.log('📐 Load product scale factor:', SCALE_FACTOR);
+            
+            // Apply colours
+            if (data.colours && data.colours.externalFrame) {
+                pvcResiDoor_frameColourObj = data.colours.externalFrame;
+                if (data.colours.externalFrame.hex) pvcResiDoor_applyFrameColour(data.colours.externalFrame.hex);
+            } else if (data.externalFrameColour) {
+                // Legacy format
+                pvcResiDoor_frameColourObj = data.externalFrameColour;
+                if (data.externalFrameColour.hex) pvcResiDoor_applyFrameColour(data.externalFrameColour.hex);
+            }
+
+            if (data.colours && data.colours.externalSash) {
+                pvcResiDoor_sashColourObj = data.colours.externalSash;
+                if (data.colours.externalSash.hex) pvcResiDoor_applySashColour(data.colours.externalSash.hex);
+            } else if (data.externalSashColour) {
+                // Legacy format
+                pvcResiDoor_sashColourObj = data.externalSashColour;
+                if (data.externalSashColour.hex) pvcResiDoor_applySashColour(data.externalSashColour.hex);
+            }
+
+            if (data.colours && data.colours.internalFrame) {
+                pvcResiDoor_internalFrameColourObj = data.colours.internalFrame;
+            }
+            if (data.colours && data.colours.internalSash) {
+                pvcResiDoor_internalSashColourObj = data.colours.internalSash;
+            }
+            
+            // Apply corner types
+            if (data.cornerTypes) {
+                if (data.cornerTypes.frameExternalCorner) pvcResiDoor_updateFrameExternalCorner(data.cornerTypes.frameExternalCorner);
+                if (data.cornerTypes.frameInternalCorner) pvcResiDoor_frameInternalCorner = data.cornerTypes.frameInternalCorner;
+                if (data.cornerTypes.sashExternalCorner) pvcResiDoor_updateSashExternalCorner(data.cornerTypes.sashExternalCorner);
+                if (data.cornerTypes.sashInternalCorner) pvcResiDoor_sashInternalCorner = data.cornerTypes.sashInternalCorner;
+                if (data.cornerTypes.railJoint) pvcResiDoor_updateRailJointType(data.cornerTypes.railJoint);
+            }
+            
+            // Apply mullions
+            if (data.mullionsPerPanel && Array.isArray(data.mullionsPerPanel)) {
+                pvcResiDoor_mullionsPerPanel = data.mullionsPerPanel;
+                if (data.mullionThicknessMm && Array.isArray(data.mullionThicknessMm)) {
+                    pvcResiDoor_mullionThicknessMm = data.mullionThicknessMm;
+                }
+                if (data.mullionPositions && Array.isArray(data.mullionPositions)) {
+                    pvcResiDoor_mullionPositions = data.mullionPositions;
+                }
+                if (data.mullionGroups && Array.isArray(data.mullionGroups)) {
+                    pvcResiDoor_mullionGroups = data.mullionGroups;
+                }
+                if (data.mullionGroupCounter) {
+                    pvcResiDoor_mullionGroupCounter = data.mullionGroupCounter;
+                }
+                // Only mark synced if mullions actually exist
+                if (data.mullionsPerPanel.some(function(n) { return n > 0; })) {
+                    pvcResiDoor_mullionsSynced = true;
+                }
+                for (var i = 0; i < data.mullionsPerPanel.length; i++) {
+                    pvcResiDoor_rebuildPanelMullions(i, data.mullionsPerPanel[i]);
+                }
+            }
+            
+            // Apply bars
+            if (data.paneBars) {
+                pvcResiDoor_paneBars = data.paneBars;
+                Object.keys(pvcResiDoor_paneBars).forEach(function(paneId) {
+                    pvcResiDoor_renderPaneBars(paneId);
+                });
+            }
+            if (data.profileName !== undefined) pvcResiDoor_savedProfileName = data.profileName;
+            if (data.rangeName   !== undefined) pvcResiDoor_savedRangeName   = data.rangeName;
+            
+            // Apply all visuals with correct scale
+            pvcResiDoor_applyAllVisuals();
+            
+            // Apply panel materials
+            pvcResiDoor_applyAllPanelMaterials();
+
+            // Rebuild midrail drag handles from loaded state
+            pvcResiDoor_buildMidrailDragHandles();
+        }
+
+        // ============================================
+        // DRAW-TO-SPLIT SYSTEM
+        // Same pattern as casement draw-to-split.
+        // Horizontal drag → midrail (max 2).
+        // Vertical drag   → mullion (max 2 per panel).
+        // 30% threshold same as casement.
+        // First midrail within 15% of centre → snap to centre.
+        // Second midrail → redistribute to equal thirds.
+        // ============================================
+
+        var pvcResiDoor_drawing     = false;
+        var pvcResiDoor_drawSvgEl   = null;
+        var pvcResiDoor_drawPathEl  = null;
+        var pvcResiDoor_drawPath    = [];
+        var pvcResiDoor_drawPanelIdx = -1; // which glassPanel is being drawn on
+        // pvcResiDoor_suppressClick declared in STATE VARIABLES section above
+
+        // currentAutoScale equivalent for door
+        var pvcResiDoor_currentAutoScale = 1;
+
+        function pvcResiDoor_getAutoScale() {
+            var wrapper = document.querySelector('.wrapper');
+            if (!wrapper) return 1;
+            var t = wrapper.style.transform;
+            var m = t && t.match(/scale\(([^)]+)\)/);
+            return m ? parseFloat(m[1]) : 1;
+        }
+
+        function pvcResiDoor_updateSashOverlay() {
+            var overlay = document.getElementById('pvcResiDoorSashOverlay');
+            if (!overlay) return;
+            var isOpenIn = pvcResiDoor_openDirection === 'in';
+            if (isOpenIn) { overlay.style.display = 'none'; return; }
+
+            var container = overlay.parentElement;
+            var containerRect = container.getBoundingClientRect();
+            var autoScale = pvcResiDoor_getAutoScale();
+            var sashAreas = Array.prototype.slice.call(document.querySelectorAll('.sash-area')).filter(function(el) {
+                return el.offsetParent !== null;
+            });
+            if (sashAreas.length === 0) { overlay.style.display = 'none'; return; }
+            var firstRect = sashAreas[0].getBoundingClientRect();
+            var lastRect  = sashAreas[sashAreas.length - 1].getBoundingClientRect();
+            overlay.style.top    = ((firstRect.top  - containerRect.top)  / autoScale) + 'px';
+            overlay.style.left   = ((firstRect.left - containerRect.left) / autoScale) + 'px';
+            overlay.style.width  = (firstRect.width  / autoScale) + 'px';
+            overlay.style.height = ((lastRect.bottom - firstRect.top) / autoScale) + 'px';
+            overlay.style.display = 'block';
+        }
+
+        function pvcResiDoor_addDrawHandlers() {
+            // Attach to sash-area rows — these are never rebuilt, always present
+            // panelIdx 0=row1, 1=row2, 2=row3
+            var rows = [
+                document.querySelector('.pvc-resi-door-sash-panel1'),
+                document.querySelector('.pvc-resi-door-sash-panel2'),
+                document.querySelector('.pvc-resi-door-sash-panel3')
+            ];
+            rows.forEach(function(row, panelIdx) {
+                if (!row) return;
+                row.addEventListener('mousedown', function(e) {
+                    // Only draw if the click originated inside the glass-area
+                    if (!e.target.closest('.glass-area') && e.target !== row) return;
+                    pvcResiDoor_onGlassMouseDown(e, panelIdx);
+                });
+            });
+
+            document.addEventListener('mousemove', pvcResiDoor_onDrawMouseMove);
+            document.addEventListener('mouseup',   pvcResiDoor_onDrawMouseUp);
+        }
+
+        function pvcResiDoor_onGlassMouseDown(e, panelIdx) {
+            if (e.button !== 0) return;
+            // Don't start draw if clicking on toggle overlays or midrail handle
+            if (e.target.closest('.frame-corner-toggle') ||
+                e.target.closest('.sash-corner-toggle') ||
+                e.target.closest('.rail-joint-toggle')) return;
+            e.stopPropagation();
+
+            pvcResiDoor_drawing      = true;
+            pvcResiDoor_suppressClick = false;
+            pvcResiDoor_drawPanelIdx = panelIdx;
+            pvcResiDoor_currentAutoScale = pvcResiDoor_getAutoScale();
+
+            var panel = document.getElementById('glassPanel' + (panelIdx + 1));
+            var rect  = panel.getBoundingClientRect();
+
+            pvcResiDoor_drawPath = [{
+                x: (e.clientX - rect.left) / pvcResiDoor_currentAutoScale,
+                y: (e.clientY - rect.top)  / pvcResiDoor_currentAutoScale
+            }];
+
+            // SVG sketch overlay
+            pvcResiDoor_drawSvgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            pvcResiDoor_drawSvgEl.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:50;overflow:visible;';
+            pvcResiDoor_drawPathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            pvcResiDoor_drawPathEl.setAttribute('fill', 'none');
+            pvcResiDoor_drawPathEl.setAttribute('stroke', 'rgba(255,255,255,0.9)');
+            pvcResiDoor_drawPathEl.setAttribute('stroke-width', '3');
+            pvcResiDoor_drawPathEl.setAttribute('stroke-linecap', 'round');
+            pvcResiDoor_drawSvgEl.appendChild(pvcResiDoor_drawPathEl);
+            panel.appendChild(pvcResiDoor_drawSvgEl);
+        }
+
+        function pvcResiDoor_onDrawMouseMove(e) {
+            if (!pvcResiDoor_drawing) return;
+            var panel = document.getElementById('glassPanel' + (pvcResiDoor_drawPanelIdx + 1));
+            if (!panel) return;
+            var rect = panel.getBoundingClientRect();
+            pvcResiDoor_drawPath.push({
+                x: (e.clientX - rect.left) / pvcResiDoor_currentAutoScale,
+                y: (e.clientY - rect.top)  / pvcResiDoor_currentAutoScale
+            });
+            if (pvcResiDoor_drawPath.length >= 2) {
+                pvcResiDoor_drawPathEl.setAttribute('d',
+                    'M ' + pvcResiDoor_drawPath.map(function(p) { return p.x + ' ' + p.y; }).join(' L ')
+                );
+            }
+        }
+
+        function pvcResiDoor_onDrawMouseUp(e) {
+            if (!pvcResiDoor_drawing) return;
+            pvcResiDoor_drawing = false;
+            if (pvcResiDoor_drawSvgEl) {
+                pvcResiDoor_drawSvgEl.remove();
+                pvcResiDoor_drawSvgEl  = null;
+                pvcResiDoor_drawPathEl = null;
+            }
+
+            var path      = pvcResiDoor_drawPath;
+            var panelIdx  = pvcResiDoor_drawPanelIdx;
+            if (path.length < 2) return;
+
+            var start = path[0];
+            var end   = path[path.length - 1];
+            var dx    = Math.abs(end.x - start.x);
+            var dy    = Math.abs(end.y - start.y);
+
+            // Minimum drag distance
+            if (dx < 5 && dy < 5) return;
+
+            var isH = dx < dy; // horizontal drag (midrail) = mostly vertical mouse movement
+            // NOTE: drawing a midrail means dragging LEFT-RIGHT across the door,
+            // so dx > dy. Drawing a mullion means dragging UP-DOWN, so dy > dx.
+            // Reconsider: casement uses isH = dx >= dy meaning horizontal line (midrail).
+            // A horizontal line across the door = mouse moves LEFT-RIGHT = dx > dy. Correct.
+            isH = dx >= dy;
+
+            var panel = document.getElementById('glassPanel' + (panelIdx + 1));
+            if (!panel) return;
+            var panelW = panel.offsetWidth;
+            var panelH = panel.offsetHeight;
+
+            if (isH) {
+                // ── MIDRAIL ──────────────────────────────────────────────
+                // 30% threshold
+                if (dx < panelW * 0.3) return;
+
+                // Max 2 midrails
+                if (pvcResiDoor_midrail1Height > 0 && pvcResiDoor_midrail2Height > 0) return;
+
+                pvcResiDoor_suppressClick = true;
+                setTimeout(function() { pvcResiDoor_suppressClick = false; }, 50);
+
+                // Convert draw y position within this panel to mm from top of door
+                // We need to know this panel's y offset within the full door
+                var sashArea = panel.closest('.sash-area');
+                var rowsContainer = document.querySelector('.rows-container');
+                var sashRect = sashArea ? sashArea.getBoundingClientRect() : null;
+                var rowsRect = rowsContainer ? rowsContainer.getBoundingClientRect() : null;
+
+                // Average y of drawn path in panel coords
+                var avgY = path.reduce(function(s, p) { return s + p.y; }, 0) / path.length;
+
+                // y of this panel's top edge within the full door (px, unscaled)
+                var panelTopInDoor = sashRect && rowsRect
+                    ? (sashRect.top - rowsRect.top) / pvcResiDoor_currentAutoScale
+                    : 0;
+                // Account for sash inset (glass-area is inset from sash top)
+                var glassAreaTopInSash = parseFloat(getComputedStyle(panel).top) || 0;
+                var splitYInDoor = panelTopInDoor + glassAreaTopInSash + avgY;
+
+                // Convert to mm
+                var totalHeightInput = document.querySelector('#rightMeasure input');
+                var totalHeightMm = parseInt(totalHeightInput ? totalHeightInput.value : 2100) || 2100;
+                if (pvcResiDoor_cillVisible) totalHeightMm -= pvcResiDoor_cillHeight;
+
+                // Full door px height (sum of all row panels)
+                var allRows = 0;
+                for (var i = 1; i <= 3; i++) {
+                    var rp = document.querySelector('#row' + i + ' .row-panel');
+                    if (rp && document.getElementById('row' + i).style.display !== 'none') {
+                        allRows += rp.offsetHeight;
+                    }
+                }
+                var splitMm = Math.round((splitYInDoor / allRows) * totalHeightMm);
+                splitMm = Math.max(100, Math.min(totalHeightMm - 100, splitMm));
+
+                if (pvcResiDoor_midrail1Height === 0) {
+                    // First midrail — snap to casement midrail or centre
+                    var centre    = totalHeightMm / 2;
+                    var threshold = totalHeightMm * 0.15;
+                    // Auto-align: snap to nearest casement midrail within 15% of total height
+                    var snappedToCasement = false;
+                    for (var ci = 0; ci < pvcResiDoor_casementMidrailsMm.length; ci++) {
+                        var cMm = pvcResiDoor_casementMidrailsMm[ci];
+                        if (Math.abs(splitMm - cMm) <= threshold) {
+                            splitMm = cMm;
+                            snappedToCasement = true;
+                            break;
+                        }
+                    }
+                    // Fallback: snap to centre
+                    if (!snappedToCasement && Math.abs(splitMm - centre) <= threshold) {
+                        splitMm = centre;
+                    }
+                    pvcResiDoor_updateMidrail1Height(116); // default thickness
+                    // Set row 1 height to split position, row 2 gets remainder
+                    var row1Mm = splitMm;
+                    var row2Mm = totalHeightMm - row1Mm;
+                    var r1Input = document.querySelector('#row1 .row-measure input');
+                    var r2Input = document.querySelector('#row2 .row-measure input');
+                    if (r1Input) r1Input.value = row1Mm;
+                    if (r2Input) r2Input.value = row2Mm;
+                    pvcResiDoor_applyAllVisuals();
+
+                } else {
+                    // Second midrail — redistribute to equal thirds
+                    pvcResiDoor_updateMidrail2Height(116); // default thickness
+                    var third = Math.round(totalHeightMm / 3);
+                    var r1Input = document.querySelector('#row1 .row-measure input');
+                    var r2Input = document.querySelector('#row2 .row-measure input');
+                    var r3Input = document.querySelector('#row3 .row-measure input');
+                    if (r1Input) r1Input.value = third;
+                    if (r2Input) r2Input.value = third;
+                    if (r3Input) r3Input.value = totalHeightMm - (third * 2);
+                    pvcResiDoor_applyAllVisuals();
+                }
+
+                // Rebuild midrail drag handles
+                pvcResiDoor_buildMidrailDragHandles();
+                pvcResiDoor_sendStateToConsole();
+
+            } else {
+                // ── MULLION ───────────────────────────────────────────────
+                // 30% threshold — but measure against the full drag distance in document coords
+                // so a drag spanning multiple panels still qualifies
+                if (dy < panelH * 0.3) return;
+
+                pvcResiDoor_suppressClick = true;
+                setTimeout(function() { pvcResiDoor_suppressClick = false; }, 50);
+
+                // Average x within the originating panel
+                var avgX = path.reduce(function(s, p) { return s + p.x; }, 0) / path.length;
+                var mullionPx = MULLION_WIDTH_MM / SCALE_FACTOR;
+                avgX = Math.max(mullionPx, Math.min(panelW - mullionPx, avgX));
+                var frac = avgX / panelW;
+
+                // Determine which panels the drag spans vertically using document coords
+                var autoScale = pvcResiDoor_currentAutoScale;
+                var dragTopY    = Math.min(path[0].y, path[path.length - 1].y);
+                var dragBottomY = Math.max(path[0].y, path[path.length - 1].y);
+
+                // Convert path coords (relative to originating panel) to document Y
+                var originPanel = document.getElementById('glassPanel' + (panelIdx + 1));
+                var originRect  = originPanel ? originPanel.getBoundingClientRect() : null;
+                var dragTopDoc    = originRect ? originRect.top    + dragTopY    * autoScale : 0;
+                var dragBottomDoc = originRect ? originRect.top    + dragBottomY * autoScale : 0;
+
+                // Each draw stroke gets a unique group ID — all panels hit by this stroke share it
+                var groupId = ++pvcResiDoor_mullionGroupCounter;
+
+                // Check all three panels — apply mullion to any that overlap the drag range
+                var panelIds = [0, 1, 2];
+                var applied = false;
+                panelIds.forEach(function(pi) {
+                    var p = document.getElementById('glassPanel' + (pi + 1));
+                    if (!p || p.offsetParent === null) return; // hidden panel
+                    var rect = p.getBoundingClientRect();
+                    // Overlap check
+                    if (rect.bottom < dragTopDoc || rect.top > dragBottomDoc) return;
+
+                    var currentCount = pvcResiDoor_mullionsPerPanel[pi];
+                    if (currentCount >= 2) return; // max 2 mullions per panel
+
+                    pvcResiDoor_mullionPositions[pi] = pvcResiDoor_mullionPositions[pi] || [];
+                    pvcResiDoor_mullionGroups[pi]    = pvcResiDoor_mullionGroups[pi]    || [];
+
+                    if (currentCount === 0) {
+                        // First mullion — always centre
+                        pvcResiDoor_mullionPositions[pi] = [0.5];
+                        pvcResiDoor_mullionGroups[pi]    = [groupId];
+                    } else {
+                        // Second mullion — equalise to thirds
+                        pvcResiDoor_mullionPositions[pi] = [0.333, 0.667];
+                        pvcResiDoor_mullionGroups[pi]    = [pvcResiDoor_mullionGroups[pi][0], groupId];
+                    }
+
+                    pvcResiDoor_mullionsPerPanel[pi] = currentCount + 1;
+                    pvcResiDoor_rebuildPanelMullions(pi, pvcResiDoor_mullionsPerPanel[pi]);
+                    applied = true;
+                });
+                if (applied) pvcResiDoor_sendStateToConsole();
+            }
+        }
+
+        // ============================================
+        // MIDRAIL DRAG
+        // ============================================
+        function pvcResiDoor_buildMidrailDragHandles() {
+            // Remove existing
+            document.querySelectorAll('.midrail-drag-handle').forEach(function(el) { el.remove(); });
+
+            var midrailThicknessPx = 116 / SCALE_FACTOR;
+
+            if (pvcResiDoor_midrail1Height > 0) {
+                var sash1 = document.querySelector('.pvc-resi-door-sash-panel1');
+                if (sash1) {
+                    var handle = document.createElement('div');
+                    handle.className = 'midrail-drag-handle';
+                    var half = (pvcResiDoor_midrail1Height / SCALE_FACTOR) / 2;
+                    handle.style.cssText = 'height:' + (half * 2 + 4) + 'px;bottom:' + (-half - 2) + 'px;cursor:ns-resize;';
+                    handle.dataset.midrail = '1';
+                    handle.addEventListener('mousedown', function(e) {
+                        pvcResiDoor_onMidrailDragStart(e, 1);
+                    });
+                    handle.addEventListener('dblclick', function(e) {
+                        e.stopPropagation();
+                        pvcResiDoor_openMidrailPopup(1);
+                    });
+                    sash1.appendChild(handle);
+                }
+            }
+
+            if (pvcResiDoor_midrail2Height > 0) {
+                var sash2 = document.querySelector('.pvc-resi-door-sash-panel2');
+                if (sash2) {
+                    var handle2 = document.createElement('div');
+                    handle2.className = 'midrail-drag-handle';
+                    var half2 = (pvcResiDoor_midrail2Height / SCALE_FACTOR) / 2;
+                    handle2.style.cssText = 'height:' + (half2 * 2 + 4) + 'px;bottom:' + (-half2 - 2) + 'px;cursor:ns-resize;';
+                    handle2.dataset.midrail = '2';
+                    handle2.addEventListener('mousedown', function(e) {
+                        pvcResiDoor_onMidrailDragStart(e, 2);
+                    });
+                    handle2.addEventListener('dblclick', function(e) {
+                        e.stopPropagation();
+                        pvcResiDoor_openMidrailPopup(2);
+                    });
+                    sash2.appendChild(handle2);
+                }
+            }
+        }
+
+        // ============================================
+        // MULLION DRAG
+        // ============================================
+        var pvcResiDoor_mullionDragging  = false;
+        var pvcResiDoor_mullionDragPanel = -1;
+        var pvcResiDoor_mullionDragIdx   = -1;
+        var pvcResiDoor_mullionDragPanel_el = null;
+        var pvcResiDoor_mullionDragStartX = 0;
+        var pvcResiDoor_mullionDragStartFrac = 0;
+        var pvcResiDoor_mullionDragGroupId = -1; // group ID of the mullion being dragged
+
+        function pvcResiDoor_onMullionDragStart(e, panelIdx, mullionIdx) {
+            pvcResiDoor_mullionDragging   = true;
+            pvcResiDoor_mullionDragPanel  = panelIdx;
+            pvcResiDoor_mullionDragIdx    = mullionIdx;
+            pvcResiDoor_mullionDragPanel_el = document.getElementById('glassPanel' + (panelIdx + 1));
+            pvcResiDoor_mullionDragStartX = e.clientX;
+            pvcResiDoor_mullionDragStartFrac = (pvcResiDoor_mullionPositions[panelIdx] || [])[mullionIdx] || 0.5;
+            pvcResiDoor_mullionDragGroupId = (pvcResiDoor_mullionGroups[panelIdx] || [])[mullionIdx] || -1;
+
+            document.addEventListener('mousemove', pvcResiDoor_onMullionDragMove);
+            document.addEventListener('mouseup',   pvcResiDoor_onMullionDragEnd);
+        }
+
+        function pvcResiDoor_onMullionDragMove(e) {
+            if (!pvcResiDoor_mullionDragging) return;
+            var panel = pvcResiDoor_mullionDragPanel_el;
+            if (!panel) return;
+
+            var autoScale = pvcResiDoor_getAutoScale();
+            var panelW = panel.offsetWidth;
+            var dx = (e.clientX - pvcResiDoor_mullionDragStartX) / autoScale;
+            var newFrac = pvcResiDoor_mullionDragStartFrac + (dx / panelW);
+
+            // Clamp — keep at least 10% from edges and other mullions
+            var positions = (pvcResiDoor_mullionPositions[pvcResiDoor_mullionDragPanel] || []).slice();
+            var mullionCount = pvcResiDoor_mullionsPerPanel[pvcResiDoor_mullionDragPanel];
+            var idx = pvcResiDoor_mullionDragIdx;
+            var minFrac = idx === 0 ? 0.1 : positions[idx - 1] + 0.1;
+            var maxFrac = idx === mullionCount - 1 ? 0.9 : positions[idx + 1] - 0.1;
+            newFrac = Math.max(minFrac, Math.min(maxFrac, newFrac));
+
+            // Update the dragged mullion
+            positions[idx] = newFrac;
+            pvcResiDoor_mullionPositions[pvcResiDoor_mullionDragPanel] = positions;
+            pvcResiDoor_rebuildPanelMullions(pvcResiDoor_mullionDragPanel, mullionCount);
+
+            // Sync all mullions in the same group across other panels
+            if (pvcResiDoor_mullionDragGroupId !== -1) {
+                for (var pi = 0; pi < 3; pi++) {
+                    if (pi === pvcResiDoor_mullionDragPanel) continue;
+                    var groups = pvcResiDoor_mullionGroups[pi] || [];
+                    for (var mi = 0; mi < groups.length; mi++) {
+                        if (groups[mi] === pvcResiDoor_mullionDragGroupId) {
+                            var pPositions = (pvcResiDoor_mullionPositions[pi] || []).slice();
+                            var pCount = pvcResiDoor_mullionsPerPanel[pi];
+                            // Clamp within this panel's constraints
+                            var pMin = mi === 0 ? 0.1 : pPositions[mi - 1] + 0.1;
+                            var pMax = mi === pCount - 1 ? 0.9 : pPositions[mi + 1] - 0.1;
+                            pPositions[mi] = Math.max(pMin, Math.min(pMax, newFrac));
+                            pvcResiDoor_mullionPositions[pi] = pPositions;
+                            pvcResiDoor_rebuildPanelMullions(pi, pCount);
+                        }
+                    }
+                }
+            }
+        }
+
+        function pvcResiDoor_onMullionDragEnd(e) {
+            if (!pvcResiDoor_mullionDragging) return;
+            pvcResiDoor_mullionDragging = false;
+            document.removeEventListener('mousemove', pvcResiDoor_onMullionDragMove);
+            document.removeEventListener('mouseup',   pvcResiDoor_onMullionDragEnd);
+            pvcResiDoor_sendStateToConsole();
+        }
+
+        // ============================================
+        // MIDRAIL DRAG
+        // Drag midrail handles vertically to resize rows.
+        // Only active in embedded mode where row inputs are hidden.
+        // ============================================
+        var pvcResiDoor_midrailDragging   = false;
+        var pvcResiDoor_midrailDragNum    = -1;   // 1 or 2
+        var pvcResiDoor_midrailDragStartY = 0;
+        var pvcResiDoor_midrailDragStartRow1Mm = 0;
+        var pvcResiDoor_midrailDragStartRow2Mm = 0;
+        var pvcResiDoor_midrailDragStartRow3Mm = 0;
+
+        function pvcResiDoor_onMidrailDragStart(e, midrailNum) {
+            if (e.button !== 0) return;
+            e.stopPropagation();
+            e.preventDefault();
+            pvcResiDoor_midrailDragging   = true;
+            pvcResiDoor_midrailDragNum    = midrailNum;
+            pvcResiDoor_midrailDragStartY = e.clientY;
+            // Capture current row heights in mm
+            var r1 = document.querySelector('#row1 .row-measure input');
+            var r2 = document.querySelector('#row2 .row-measure input');
+            var r3 = document.querySelector('#row3 .row-measure input');
+            pvcResiDoor_midrailDragStartRow1Mm = parseFloat(r1 ? r1.value : 0) || 0;
+            pvcResiDoor_midrailDragStartRow2Mm = parseFloat(r2 ? r2.value : 0) || 0;
+            pvcResiDoor_midrailDragStartRow3Mm = parseFloat(r3 ? r3.value : 0) || 0;
+            document.addEventListener('mousemove', pvcResiDoor_onMidrailDragMove);
+            document.addEventListener('mouseup',   pvcResiDoor_onMidrailDragEnd);
+        }
+
+        function pvcResiDoor_onMidrailDragMove(e) {
+            if (!pvcResiDoor_midrailDragging) return;
+            var autoScale = pvcResiDoor_getAutoScale();
+            var dy = (e.clientY - pvcResiDoor_midrailDragStartY) / autoScale;
+            // Convert px delta to mm
+            var deltaMm = Math.round(dy * SCALE_FACTOR);
+            var minRowMm = 100;
+
+            var r1 = document.querySelector('#row1 .row-measure input');
+            var r2 = document.querySelector('#row2 .row-measure input');
+            var r3 = document.querySelector('#row3 .row-measure input');
+
+            if (pvcResiDoor_midrailDragNum === 1) {
+                // Dragging midrail 1 — adjusts row1 and row2 (row3 unchanged)
+                var newRow1 = pvcResiDoor_midrailDragStartRow1Mm + deltaMm;
+                var newRow2 = pvcResiDoor_midrailDragStartRow2Mm - deltaMm;
+                // Clamp
+                if (newRow1 < minRowMm) { newRow1 = minRowMm; newRow2 = pvcResiDoor_midrailDragStartRow1Mm + pvcResiDoor_midrailDragStartRow2Mm - minRowMm; }
+                if (newRow2 < minRowMm) { newRow2 = minRowMm; newRow1 = pvcResiDoor_midrailDragStartRow1Mm + pvcResiDoor_midrailDragStartRow2Mm - minRowMm; }
+                // Snap to casement midrail within 10mm
+                for (var ci = 0; ci < pvcResiDoor_casementMidrailsMm.length; ci++) {
+                    if (Math.abs(newRow1 - pvcResiDoor_casementMidrailsMm[ci]) <= 10) {
+                        var snapped = pvcResiDoor_casementMidrailsMm[ci];
+                        newRow2 = newRow2 + (newRow1 - snapped);
+                        newRow1 = snapped;
+                        break;
+                    }
+                }
+                if (r1) r1.value = Math.round(newRow1);
+                if (r2) r2.value = Math.round(newRow2);
+            } else {
+                // Dragging midrail 2 — adjusts row2 and row3 (row1 unchanged)
+                var newRow2 = pvcResiDoor_midrailDragStartRow2Mm + deltaMm;
+                var newRow3 = pvcResiDoor_midrailDragStartRow3Mm - deltaMm;
+                if (newRow2 < minRowMm) { newRow2 = minRowMm; newRow3 = pvcResiDoor_midrailDragStartRow2Mm + pvcResiDoor_midrailDragStartRow3Mm - minRowMm; }
+                if (newRow3 < minRowMm) { newRow3 = minRowMm; newRow2 = pvcResiDoor_midrailDragStartRow2Mm + pvcResiDoor_midrailDragStartRow3Mm - minRowMm; }
+                // Snap to casement midrail within 10mm (midrail 2 pos = row1 + row2)
+                var r1val = parseFloat(r1 ? r1.value : 0) || 0;
+                var midrail2Pos = r1val + newRow2;
+                for (var ci = 0; ci < pvcResiDoor_casementMidrailsMm.length; ci++) {
+                    if (Math.abs(midrail2Pos - pvcResiDoor_casementMidrailsMm[ci]) <= 10) {
+                        var snapped2 = pvcResiDoor_casementMidrailsMm[ci] - r1val;
+                        newRow3 = newRow3 + (newRow2 - snapped2);
+                        newRow2 = snapped2;
+                        break;
+                    }
+                }
+                if (r2) r2.value = Math.round(newRow2);
+                if (r3) r3.value = Math.round(newRow3);
+            }
+            pvcResiDoor_applyAllVisuals();
+        }
+
+        function pvcResiDoor_onMidrailDragEnd(e) {
+            if (!pvcResiDoor_midrailDragging) return;
+            pvcResiDoor_midrailDragging = false;
+            document.removeEventListener('mousemove', pvcResiDoor_onMidrailDragMove);
+            document.removeEventListener('mouseup',   pvcResiDoor_onMidrailDragEnd);
+            pvcResiDoor_sendStateToConsole();
+        }
+
+        // ============================================
+        // MIDRAIL THICKNESS POPUP
+        // Double-click a midrail to change its thickness
+        // ============================================
+        function pvcResiDoor_openMidrailPopup(midrailNum) {
+            pvcResiDoor_closeMidrailPopup();
+
+            var overlay = document.createElement('div');
+            overlay.className = 'rd-popup-overlay';
+            document.body.appendChild(overlay);
+
+            var popup = document.createElement('div');
+            popup.className = 'rd-popup';
+
+            var currentMm = midrailNum === 1 ? pvcResiDoor_midrail1Height : pvcResiDoor_midrail2Height;
+            var options = [70, 90, 116, 190];
+            var btns = options.map(function(mm) {
+                return '<button class="rd-thickness-btn' + (mm === currentMm ? ' active' : '') +
+                    '" data-mm="' + mm + '">' + mm + 'mm</button>';
+            }).join('');
+
+            popup.innerHTML =
+                '<button class="rd-popup-close">&times;</button>' +
+                '<h3>Midrail ' + midrailNum + ' Width</h3>' +
+                '<div class="rd-thickness-options">' + btns + '</div>' +
+                '<div class="rd-popup-footer">' +
+                '<button class="rd-thickness-btn active" id="rdPopupDone">Done</button>' +
+                '</div>';
+
+            document.body.appendChild(popup);
+
+            popup.querySelectorAll('[data-mm]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var newMm = parseInt(btn.getAttribute('data-mm'));
+                    if (!pvcResiDoor_midrailsSynced) {
+                        // First change — sync both midrails to the same thickness
+                        pvcResiDoor_midrail1Height = newMm;
+                        if (pvcResiDoor_midrail2Height > 0) pvcResiDoor_midrail2Height = newMm;
+                        pvcResiDoor_midrailsSynced = true;
+                    } else {
+                        // Subsequent changes — only the selected midrail
+                        if (midrailNum === 1) {
+                            pvcResiDoor_midrail1Height = newMm;
+                        } else {
+                            pvcResiDoor_midrail2Height = newMm;
+                        }
+                    }
+                    pvcResiDoor_applyMidrailHeights();
+                    pvcResiDoor_applyAllVisuals();
+                    pvcResiDoor_buildMidrailDragHandles();
+                    pvcResiDoor_closeMidrailPopup();
+                });
+            });
+
+            popup.querySelector('.rd-popup-close').addEventListener('click', pvcResiDoor_closeMidrailPopup);
+            popup.querySelector('#rdPopupDone').addEventListener('click', pvcResiDoor_closeMidrailPopup);
+            overlay.addEventListener('click', pvcResiDoor_closeMidrailPopup);
+            popup.addEventListener('click', function(e) { e.stopPropagation(); });
+        }
+
+        function pvcResiDoor_closeMidrailPopup() {
+            document.querySelectorAll('.rd-popup,.rd-popup-overlay').forEach(function(el) { el.remove(); });
+        }
+
+        // ============================================
+        // MULLION THICKNESS POPUP
+        // Double-click a mullion to change its thickness
+        // ============================================
+        function pvcResiDoor_openMullionPopup(panelIndex) {
+            pvcResiDoor_closeMidrailPopup();
+
+            var overlay = document.createElement('div');
+            overlay.className = 'rd-popup-overlay';
+            document.body.appendChild(overlay);
+
+            var popup = document.createElement('div');
+            popup.className = 'rd-popup';
+
+            var currentMm = pvcResiDoor_mullionThicknessMm[panelIndex] || MULLION_WIDTH_MM;
+            var options = [36, 70, 90, 116];
+            var btns = options.map(function(mm) {
+                return '<button class="rd-thickness-btn' + (mm === currentMm ? ' active' : '') +
+                    '" data-mm="' + mm + '">' + mm + 'mm</button>';
+            }).join('');
+
+            popup.innerHTML =
+                '<button class="rd-popup-close">&times;</button>' +
+                '<h3>Mullion Width</h3>' +
+                '<div class="rd-thickness-options">' + btns + '</div>' +
+                '<div class="rd-popup-footer">' +
+                '<button class="rd-thickness-btn active" id="rdMullionDone">Done</button>' +
+                '</div>';
+
+            document.body.appendChild(popup);
+
+            popup.querySelectorAll('[data-mm]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var newMm = parseInt(btn.getAttribute('data-mm'));
+                    if (!pvcResiDoor_mullionsSynced) {
+                        // First change — sync all panels to the same thickness
+                        pvcResiDoor_mullionThicknessMm = pvcResiDoor_mullionThicknessMm.map(function() { return newMm; });
+                        pvcResiDoor_mullionsSynced = true;
+                        for (var i = 0; i < pvcResiDoor_mullionsPerPanel.length; i++) {
+                            pvcResiDoor_rebuildPanelMullions(i, pvcResiDoor_mullionsPerPanel[i]);
+                        }
+                    } else {
+                        // Subsequent changes — this panel only
+                        pvcResiDoor_mullionThicknessMm[panelIndex] = newMm;
+                        pvcResiDoor_rebuildPanelMullions(panelIndex, pvcResiDoor_mullionsPerPanel[panelIndex]);
+                    }
+                    pvcResiDoor_closeMidrailPopup();
+                });
+            });
+
+            popup.querySelector('.rd-popup-close').addEventListener('click', pvcResiDoor_closeMidrailPopup);
+            popup.querySelector('#rdMullionDone').addEventListener('click', pvcResiDoor_closeMidrailPopup);
+            overlay.addEventListener('click', pvcResiDoor_closeMidrailPopup);
+            popup.addEventListener('click', function(e) { e.stopPropagation(); });
+        }
+
+        // ============================================
+        // RESET
+        // Clears all midrails and mullions, same as
+        // casement reset button — back to single pane.
+        // ============================================
+        function pvcResiDoor_fullReset() {
+            pvcResiDoor_midrail1Height = 0;
+            pvcResiDoor_midrail2Height = 0;
+            pvcResiDoor_midrailsSynced = false;
+            pvcResiDoor_mullionsPerPanel = [0, 0, 0];
+            pvcResiDoor_mullionPositions = [[], [], []];
+            pvcResiDoor_mullionGroups    = [[], [], []];
+            pvcResiDoor_mullionGroupCounter = 0;
+            pvcResiDoor_mullionThicknessMm = [90, 90, 90];
+            pvcResiDoor_mullionsSynced = false;
+
+            // Clear all row locks
+            pvcResiDoor_lockedRows = {};
+            pvcResiDoor_applyRowLockState();
+
+            // Reset row heights equally
+            var totalInput = document.querySelector('#rightMeasure input');
+            var total = parseInt(totalInput ? totalInput.value : 2100) || 2100;
+            var r1Input = document.querySelector('#row1 .row-measure input');
+            if (r1Input) r1Input.value = total;
+
+            pvcResiDoor_updateRowVisibility();
+            pvcResiDoor_redistributeRowHeights();
+            for (var i = 0; i < 3; i++) {
+                pvcResiDoor_rebuildPanelMullions(i, 0);
+            }
+            document.querySelectorAll('.midrail-drag-handle').forEach(function(el) { el.remove(); });
+            pvcResiDoor_applyAllVisuals();
+            pvcResiDoor_sendStateToConsole();
+            pvcResiDoor_sendToControl('fullReset', {});
+        }

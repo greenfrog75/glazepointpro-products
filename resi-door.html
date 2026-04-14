@@ -16,13 +16,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
-            /* All px values derived from mm constants / SCALE_FACTOR (2.5)
-               FRAME_THICKNESS_MM = 45  -> 18px
-               SASH_BORDER_MM     = 16  -> 6.4px
-               SASH_FACE_MM       = 110 -> 44px
-               GLASS_BORDER_MM    = 16  -> 6.4px
-               MULLION_WIDTH_MM   = 90  -> 22.5px
-               midrail halves are set dynamically by pvcResiDoor_applyMidrailHeights()
+            /* SEED VALUES — overridden dynamically by JS via pvcResiDoor_recalcScaleDeps().
+               Do NOT edit these directly. Change the mm constants in JS instead.
+               Standalone uses SCALE_FACTOR = 4, embedded mode uses 2.5.
             */
             --panel-width: 360px;        /* 900mm / 2.5 */
             --panel-height: 280px;       /* 700mm / 2.5 */
@@ -233,9 +229,6 @@
             flex-shrink: 0;
         }
         
-        .pvc-resi-door-frame-leftEdge { }
-        .pvc-resi-door-frame-rightEdge { }
-        
         .pvc-resi-door-frame-topEdge, .pvc-resi-door-frame-bottomEdge {
             position: absolute;
             left: 0;
@@ -263,10 +256,6 @@
             border-left: var(--sash-border) solid #ffffff;
             border-right: var(--sash-border) solid #a0a0a0;
         }
-        
-        .pvc-resi-door-sash-panel1 { }
-        .pvc-resi-door-sash-panel2 { }
-        .pvc-resi-door-sash-panel3 { }
         
         /* Row 1: has top sash border */
         .pvc-resi-door-sash-panel1 {
@@ -913,6 +902,8 @@
             return false;
         }
 
+        // Hook for future responsive scaling — currently fixed at 4.
+        // In embedded mode, SCALE_FACTOR is overridden to 2.5 by updateDimensions.
         function pvcResiDoor_calculateScaleFactor(width, height) {
             return 4;
         }
@@ -983,73 +974,65 @@
         }
         
         // ============================================
-        // COLOUR STATE VARIABLES
+        // STATE VARIABLES
+        // All mutable state for the resi door product.
+        // Grouped by subsystem for clarity.
         // ============================================
+
+        // ── Colours ──
         var pvcResiDoor_frameColour = '#efeeee';
         var pvcResiDoor_frameColourObj = null;
         var pvcResiDoor_sashColour = '#efeeee';
         var pvcResiDoor_sashColourObj = null;
         var pvcResiDoor_internalFrameColourObj = null;
+        var pvcResiDoor_internalSashColourObj = null;
         var pvcResiDoor_savedProfileName = '';
         var pvcResiDoor_savedRangeName   = '';
-        var pvcResiDoor_internalSashColourObj = null;
-        
-        // ============================================
-        // CILL STATE VARIABLES
-        // ============================================
+
+        // ── Cill ──
         var pvcResiDoor_cillVisible = false;
         var pvcResiDoor_cillHeight = 0;
         var pvcResiDoor_cillProjection = 85;
-        
-        // ============================================
-        // TRICKLE VENT STATE VARIABLES
-        // ============================================
-        var pvcResiDoor_ventSize = 0; // 0 = off, otherwise width in px
-        var pvcResiDoor_sashVentSize = 0; // 0 = off, door head vent width in px
-        
-        // ============================================
-        // CORNER TYPE STATE VARIABLES
-        // ============================================
+
+        // ── Trickle vents ──
+        var pvcResiDoor_ventSize = 0;       // 0 = off, otherwise width in px
+        var pvcResiDoor_sashVentSize = 0;   // 0 = off, door head vent width in px
+
+        // ── Corner types ──
         var pvcResiDoor_frameExternalCorner = 'welded';
         var pvcResiDoor_frameInternalCorner = 'welded';
         var pvcResiDoor_sashExternalCorner = 'welded';
         var pvcResiDoor_sashInternalCorner = 'welded';
         var pvcResiDoor_railJointType = 'welded';
+
+        // ── Mullions ──
         var pvcResiDoor_mullionsPerPanel = [0, 0, 0];
         var pvcResiDoor_mullionPositions = [[], [], []];
         var pvcResiDoor_mullionGroups    = [[], [], []]; // group ID per mullion per panel
         var pvcResiDoor_mullionGroupCounter = 0;         // increments each draw
-        // Row lock state — keyed by row number (1-based). true = locked.
-        // Locked rows stay fixed when total height changes.
-        // Cleared only on full reset.
-        var pvcResiDoor_lockedRows = {};
-        // Mullion thickness per panel in mm — defaults to MULLION_WIDTH_MM
-        var pvcResiDoor_mullionThicknessMm = [90, 90, 90];
-        // First mullion thickness change syncs all panels. After that, each panel is independent.
-        var pvcResiDoor_mullionsSynced = false;
-        
-        // Door open direction: 'out' (towards viewer) or 'in' (away from viewer)
-        var pvcResiDoor_openDirection = 'out';
+        var pvcResiDoor_mullionThicknessMm = [90, 90, 90]; // per panel, defaults to MULLION_WIDTH_MM
+        var pvcResiDoor_mullionsSynced = false; // first change syncs all panels, then independent
 
-        // Door threshold type
-        var pvcResiDoor_doorThreshold = 'Standard';
-
-        // Weather bar
-        var pvcResiDoor_weatherBar = 'None';
-
-        // Door cylinder
-        var pvcResiDoor_doorCylinder = 'Standard';
-        
-        // Midrail heights (in mm, 0 = off)
-        var pvcResiDoor_midrail1Height = 0;
+        // ── Midrails ──
+        var pvcResiDoor_midrail1Height = 0;  // mm, 0 = off
         var pvcResiDoor_midrail2Height = 0;
-        // First midrail thickness change syncs both midrails. After that, each is independent.
-        var pvcResiDoor_midrailsSynced = false;
-        
-        // Panel materials: 'glass' or 'panel'
+        var pvcResiDoor_midrailsSynced = false; // first change syncs both, then independent
+
+        // ── Row locks ──
+        // Keyed by row number (1-based). true = locked.
+        // Locked rows stay fixed when total height changes. Cleared on full reset.
+        var pvcResiDoor_lockedRows = {};
+
+        // ── Door properties ──
+        var pvcResiDoor_openDirection = 'out';    // 'out' (towards viewer) or 'in' (away)
+        var pvcResiDoor_doorThreshold = 'Standard';
+        var pvcResiDoor_weatherBar = 'None';
+        var pvcResiDoor_doorCylinder = 'Standard';
+
+        // ── Panel materials ──
         var pvcResiDoor_panelMaterials = ['glass', 'glass', 'glass'];
-        
-        // Pane selection and bars
+
+        // ── Pane selection and astragal bars ──
         var pvcResiDoor_selectedPane = null; // e.g. '1A', '2A', '3A'
         var pvcResiDoor_selectedBar = null;  // {paneId, type: 'vertical'|'horizontal', id}
         var pvcResiDoor_paneBars = {
@@ -1059,6 +1042,9 @@
             '2A': { type: 'none', vCount: 3, hCount: 3, vertical: [], horizontal: [] },
             '3A': { type: 'none', vCount: 3, hCount: 3, vertical: [], horizontal: [] }
         };
+
+        // ── Draw-to-split interaction state ──
+        var pvcResiDoor_suppressClick = false; // prevents pane click after draw gesture
         
         function pvcResiDoor_clearAndRerenderBars() {
             // Clear bar positions so they get re-initialized on next render
@@ -1289,14 +1275,11 @@
             var totalHeight = parseFloat(totalInput.value) || 2100;
             var frameHeight = pvcResiDoor_cillVisible ? totalHeight - pvcResiDoor_cillHeight : totalHeight;
 
-            // Lock this row
+            // Lock this row and redistribute remaining height among unlocked rows
             if (ROW_COUNT > 1) {
                 pvcResiDoor_lockedRows[rowNum] = true;
                 pvcResiDoor_applyRowLockState();
-            }
 
-            if (ROW_COUNT > 1) {
-                // Distribute remaining height only among unlocked rows (excluding changed row)
                 var lockedTotal = 0;
                 var unlockedRows = [];
                 for (var i = 1; i <= ROW_COUNT; i++) {
@@ -1398,6 +1381,50 @@
             pvcResiDoor_applyAllVisuals();
         }
         
+        // ============================================
+        // EMBEDDED MODE OVERRIDES
+        // Hides outer frame elements, zeros margins/borders, and re-applies
+        // scale transform. Called from applyAllVisuals() and updateDimensions
+        // handler — must run AFTER applyAllVisuals to prevent re-shown elements.
+        // ============================================
+        function pvcResiDoor_applyEmbeddedOverrides() {
+            if (!pvcResiDoor_embeddedMode) return;
+            document.documentElement.style.setProperty('--frame-thickness', '0px');
+            document.querySelectorAll(
+                '.pvc-resi-door-frame-topEdge, .pvc-resi-door-frame-bottomEdge, ' +
+                '.pvc-resi-door-frame-leftEdge, .pvc-resi-door-frame-rightEdge, ' +
+                '.pvc-resi-door-frame-border-shadow, #pvcResiDoorFrameBorderShadow, ' +
+                '.pvc-resi-door-frame-corner-line'
+            ).forEach(function(el) { el.style.display = 'none'; });
+            document.querySelectorAll('.row-panel').forEach(function(el) {
+                el.style.marginLeft   = '0';
+                el.style.marginRight  = '0';
+                el.style.borderTop    = 'none';
+                el.style.borderBottom = 'none';
+                el.style.borderLeft   = 'none';
+                el.style.borderRight  = 'none';
+            });
+            document.querySelectorAll('.sash-area').forEach(function(el) {
+                el.style.marginTop    = '0';
+                el.style.marginBottom = '0';
+            });
+            // Re-apply scale transform using last known overlay dimensions
+            if (pvcResiDoor_lastOverlayW && pvcResiDoor_lastOverlayH) {
+                setTimeout(function() {
+                    var wrapper = document.querySelector('.wrapper');
+                    if (!wrapper) return;
+                    wrapper.style.transform = 'none';
+                    var natW = wrapper.scrollWidth;
+                    var natH = wrapper.scrollHeight;
+                    if (natW > 0 && natH > 0) {
+                        var scale = Math.min(pvcResiDoor_lastOverlayW / natW, pvcResiDoor_lastOverlayH / natH);
+                        wrapper.style.transform       = 'scale(' + scale + ')';
+                        wrapper.style.transformOrigin = 'top left';
+                    }
+                }, 50);
+            }
+        }
+
         function pvcResiDoor_applyAllVisuals() {
             console.log('Applying visuals with scale factor:', SCALE_FACTOR);
 
@@ -1479,42 +1506,7 @@
 
             // In embedded mode: re-apply frame hiding and margin zeroing
             // after every applyAllVisuals since updateRowVisibility re-shows elements
-            if (pvcResiDoor_embeddedMode) {
-                document.documentElement.style.setProperty('--frame-thickness', '0px');
-                document.querySelectorAll(
-                    '.pvc-resi-door-frame-topEdge, .pvc-resi-door-frame-bottomEdge, ' +
-                    '.pvc-resi-door-frame-leftEdge, .pvc-resi-door-frame-rightEdge, ' +
-                    '.pvc-resi-door-frame-border-shadow, #pvcResiDoorFrameBorderShadow, ' +
-                    '.pvc-resi-door-frame-corner-line'
-                ).forEach(function(el) { el.style.display = 'none'; });
-                document.querySelectorAll('.row-panel').forEach(function(el) {
-                    el.style.marginLeft   = '0';
-                    el.style.marginRight  = '0';
-                    el.style.borderTop    = 'none';
-                    el.style.borderBottom = 'none';
-                    el.style.borderLeft   = 'none';
-                    el.style.borderRight  = 'none';
-                });
-                document.querySelectorAll('.sash-area').forEach(function(el) {
-                    el.style.marginTop    = '0';
-                    el.style.marginBottom = '0';
-                });
-                // Re-apply scale transform using last known overlay dimensions
-                if (pvcResiDoor_lastOverlayW && pvcResiDoor_lastOverlayH) {
-                    setTimeout(function() {
-                        var wrapper = document.querySelector('.wrapper');
-                        if (!wrapper) return;
-                        wrapper.style.transform = 'none';
-                        var natW = wrapper.scrollWidth;
-                        var natH = wrapper.scrollHeight;
-                        if (natW > 0 && natH > 0) {
-                            var scale = Math.min(pvcResiDoor_lastOverlayW / natW, pvcResiDoor_lastOverlayH / natH);
-                            wrapper.style.transform       = 'scale(' + scale + ')';
-                            wrapper.style.transformOrigin = 'top left';
-                        }
-                    }, 50);
-                }
-            }
+            pvcResiDoor_applyEmbeddedOverrides();
         }
 
         // ============================================
@@ -2155,7 +2147,9 @@
         }
         
         // ============================================
-        // PANE SELECTION AND ASTRAGAL BARS
+        // ASTRAGAL BAR SYSTEM
+        // Pane selection, bar rendering, dragging,
+        // nudging, equalisation, and apply-to-all.
         // ============================================
         
         function pvcResiDoor_handlePaneClick(e, panelNum) {
@@ -2717,31 +2711,8 @@
                 pvcResiDoor_redistributeRowHeights();
                 pvcResiDoor_applyAllVisuals();
                 pvcResiDoor_updateRowVisibility();
-                // In embedded mode: hide frame elements and zero frame thickness
-                // AFTER applyAllVisuals so nothing re-shows them
-                if (pvcResiDoor_embeddedMode) {
-                    document.documentElement.style.setProperty('--frame-thickness', '0px');
-                    // Hide all frame elements including bottom-row-only ones
-                    document.querySelectorAll(
-                        '.pvc-resi-door-frame-topEdge, .pvc-resi-door-frame-bottomEdge, ' +
-                        '.pvc-resi-door-frame-leftEdge, .pvc-resi-door-frame-rightEdge, ' +
-                        '.pvc-resi-door-frame-border-shadow, #pvcResiDoorFrameBorderShadow, ' +
-                        '.pvc-resi-door-frame-corner-line'
-                    ).forEach(function(el) { el.style.display = 'none'; });
-                    // Zero row-panel margins, borders and sash margins
-                    document.querySelectorAll('.row-panel').forEach(function(el) {
-                        el.style.marginLeft   = '0';
-                        el.style.marginRight  = '0';
-                        el.style.borderTop    = 'none';
-                        el.style.borderBottom = 'none';
-                        el.style.borderLeft   = 'none';
-                        el.style.borderRight  = 'none';
-                    });
-                    document.querySelectorAll('.sash-area').forEach(function(el) {
-                        el.style.marginTop    = '0';
-                        el.style.marginBottom = '0';
-                    });
-                }
+                // Re-apply embedded overrides AFTER applyAllVisuals and updateRowVisibility
+                pvcResiDoor_applyEmbeddedOverrides();
                 // Ensure wrapper has no padding/margin and is anchored top-left
                 var wrapper = document.querySelector('.wrapper');
                 if (wrapper) {
@@ -3355,7 +3326,7 @@
         var pvcResiDoor_drawPathEl  = null;
         var pvcResiDoor_drawPath    = [];
         var pvcResiDoor_drawPanelIdx = -1; // which glassPanel is being drawn on
-        var pvcResiDoor_suppressClick = false;
+        // pvcResiDoor_suppressClick declared in STATE VARIABLES section above
 
         // currentAutoScale equivalent for door
         var pvcResiDoor_currentAutoScale = 1;

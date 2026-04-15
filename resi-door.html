@@ -1438,7 +1438,7 @@
                     var natH = wrapper.scrollHeight;
                     var scaleX = pvcResiDoor_lastOverlayW / natW;
                     var scaleY = pvcResiDoor_lastOverlayH / natH;
-                    var scale = Math.min(scaleX, scaleY);
+                    var scale = Math.max(scaleX, scaleY);
                     console.log('🔵 [EMBED SCALE]',
                         'direction=' + pvcResiDoor_openDirection,
                         '| overlayW=' + pvcResiDoor_lastOverlayW,
@@ -1955,7 +1955,6 @@
                 '</div>' +
                 '<div class="rd-popup-footer"><button class="rd-thickness-btn active" id="rdFrameVentDone">Done</button></div>';
             document.body.appendChild(popup);
-            pvcResiDoor_scalePopup(popup);
 
             popup.querySelectorAll('[data-vent]').forEach(function(btn) {
                 btn.addEventListener('click', function() {
@@ -1992,7 +1991,6 @@
                 '</div>' +
                 '<div class="rd-popup-footer"><button class="rd-thickness-btn active" id="rdSashVentDone">Done</button></div>';
             document.body.appendChild(popup);
-            pvcResiDoor_scalePopup(popup);
 
             popup.querySelectorAll('[data-sashvent]').forEach(function(btn) {
                 btn.addEventListener('click', function() {
@@ -2790,7 +2788,7 @@
                         var natW = wrapper2.scrollWidth;
                         var natH = wrapper2.scrollHeight;
                         if (natW > 0 && natH > 0) {
-                            var scale = Math.min(d.overlayW / natW, d.overlayH / natH);
+                            var scale = Math.max(d.overlayW / natW, d.overlayH / natH);
                             wrapper2.style.transform       = 'scale(' + scale + ')';
                             wrapper2.style.transformOrigin = 'top left';
                             console.log('🔗 resi-door: scale applied', scale, 'natW='+natW+' natH='+natH+' overlayW='+d.overlayW+' overlayH='+d.overlayH);
@@ -3912,17 +3910,6 @@
 
         // ============================================
         // MIDRAIL THICKNESS POPUP
-        // Scale popup to be readable when resi door is embedded in combined frame
-        // (the iframe is scaled down by the parent, so popups appear tiny without this)
-        function pvcResiDoor_scalePopup(popup) {
-            if (!pvcResiDoor_embeddedMode) return;
-            var scale = pvcResiDoor_getAutoScale();
-            if (scale <= 0 || scale >= 1) return;
-            var zoom = 1 / scale;
-            popup.style.transform = 'translate(-50%, -50%) scale(' + zoom + ')';
-            popup.style.transformOrigin = 'center center';
-        }
-
         // Double-click a midrail to change its thickness
         // ============================================
         function pvcResiDoor_openMidrailPopup(midrailNum) {
@@ -3951,7 +3938,6 @@
                 '</div>';
 
             document.body.appendChild(popup);
-            pvcResiDoor_scalePopup(popup);
 
             popup.querySelectorAll('[data-mm]').forEach(function(btn) {
                 btn.addEventListener('click', function() {
@@ -4016,7 +4002,6 @@
                 '</div>';
 
             document.body.appendChild(popup);
-            pvcResiDoor_scalePopup(popup);
 
             popup.querySelectorAll('[data-mm]').forEach(function(btn) {
                 btn.addEventListener('click', function() {

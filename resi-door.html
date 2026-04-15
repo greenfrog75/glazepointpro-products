@@ -1194,7 +1194,7 @@
             var glassBottomRight = lightColour;
             
             document.querySelectorAll('.sash-area').forEach(function(sash) {
-                sash.style.background = 'yellow';
+                sash.style.background = 'blue';
                 sash.style.borderTopColor = sashTopLeft;
                 sash.style.borderLeftColor = sashTopLeft;
                 sash.style.borderRightColor = sashBottomRight;
@@ -1412,11 +1412,7 @@
             if (topMeasure) { topMeasure.style.display = 'none'; topMeasure.style.marginLeft = '0'; topMeasure.style.width = '0'; }
             if (rightMeasure) { rightMeasure.style.display = 'none'; rightMeasure.style.width = '0px'; }
             rowMeasures.forEach(function(el) { el.style.display = 'none'; el.style.width = '0px'; });
-            // Hide sash shadows in embedded mode
-            ['Top','Bottom','Left','Right'].forEach(function(s) {
-                var el = document.getElementById('pvcResiDoorSashShadow' + s);
-                if (el) el.style.display = 'none';
-            });
+            // Sash shadows remain active in embedded mode
             document.querySelectorAll('.row-panel').forEach(function(el) {
                 el.style.marginLeft   = '0';
                 el.style.marginRight  = '0';

@@ -1409,9 +1409,9 @@
             var topMeasure = document.querySelector('.top-measure');
             var rightMeasure = document.getElementById('rightMeasure');
             var rowMeasures = document.querySelectorAll('.row-measure');
-            if (topMeasure) topMeasure.style.display = 'none';
-            if (rightMeasure) rightMeasure.style.display = 'none';
-            rowMeasures.forEach(function(el) { el.style.display = 'none'; });
+            if (topMeasure) { topMeasure.style.display = 'none'; topMeasure.style.marginLeft = '0'; topMeasure.style.width = '0'; }
+            if (rightMeasure) { rightMeasure.style.display = 'none'; rightMeasure.style.width = '0px'; }
+            rowMeasures.forEach(function(el) { el.style.display = 'none'; el.style.width = '0px'; });
             // Fix sash shadow positions — measure-width is gone in embedded mode
             var panelWidth = 'var(--panel-width)';
             var sh = document.getElementById('pvcResiDoorSashShadowTop');

@@ -61,14 +61,13 @@
         
         /* Top width measurement */
         .top-measure {
-            margin-left: calc(var(--measure-width) + 10px);  /* Align with panel (measure + panel margin) */
+            margin-left: 108px;  /* Align with panel: row-measure 80px + margin-right 20px + panel margin-left 8px */
             width: var(--panel-width);
-            height: 40px;
             position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 5px;
+            margin-bottom: 20px;
             box-sizing: border-box;
         }
         
@@ -98,9 +97,20 @@
         }
         
         .top-measure input,
-        .row-measure input,
+        .row-measure input {
+            width: 80px;
+            padding: 2px;
+            font-size: 13px;
+            text-align: center;
+            z-index: 2;
+            box-sizing: border-box;
+            border: 1px solid #999;
+            background: white;
+            position: relative;
+            cursor: text;
+        }
         .right-measure input {
-            width: 64px;
+            width: 80px;
             padding: 2px;
             font-size: 13px;
             text-align: center;
@@ -137,7 +147,7 @@
             top: 0;
             bottom: 0;
             width: var(--panel-width);
-            box-shadow: 0 0 40px rgba(0,0,0,0.48);
+            box-shadow: 0 0 40px rgba(0,0,0,0.72);
             pointer-events: none;
             z-index: 0;
         }
@@ -159,11 +169,12 @@
         
         /* Left measurement area */
         .row-measure {
-            width: var(--measure-width);
+            width: 80px;
             position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
+            margin-right: 20px;
         }
         
         /* Vertical line */
@@ -527,11 +538,12 @@
         
         /* Right total height measurement */
         .right-measure {
-            width: var(--measure-width);
+            width: 80px;
             position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
+            margin-left: 20px;
         }
         
         .right-measure::after {
@@ -1572,13 +1584,17 @@
             // Counter-scale inputs so they stay readable at any zoom level
             if (scale < 1) {
                 var counterScale = 1 / scale;
+                var filledW = (80 / counterScale).toFixed(2) + 'px';
                 wrapper.querySelectorAll('.row-measure input').forEach(function(inp) {
+                    inp.style.width           = filledW;
                     inp.style.transform       = 'scale(' + counterScale + ')';
-                    inp.style.transformOrigin = 'right center';
+                    inp.style.transformOrigin = 'center center';
                 });
+                var rightFilledW = (80 / counterScale).toFixed(2) + 'px';
                 wrapper.querySelectorAll('.right-measure input').forEach(function(inp) {
+                    inp.style.width           = rightFilledW;
                     inp.style.transform       = 'scale(' + counterScale + ')';
-                    inp.style.transformOrigin = 'left center';
+                    inp.style.transformOrigin = 'center center';
                 });
                 wrapper.querySelectorAll('.top-measure input').forEach(function(inp) {
                     inp.style.transform       = 'scale(' + counterScale + ')';
@@ -1587,6 +1603,7 @@
             } else {
                 wrapper.querySelectorAll('.row-measure input, .right-measure input, .top-measure input').forEach(function(inp) {
                     inp.style.transform = '';
+                    inp.style.width     = '';
                 });
             }
         }

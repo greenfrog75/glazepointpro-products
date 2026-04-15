@@ -1001,7 +1001,7 @@
         // ── Colours ──
         var pvcResiDoor_frameColour = '#efeeee';
         var pvcResiDoor_frameColourObj = null;
-        var pvcResiDoor_sashColour = '#00ff00';
+        var pvcResiDoor_sashColour = '#800080';
         var pvcResiDoor_doorSashColourObj = null;
         var pvcResiDoor_internalFrameColourObj = null;
         var pvcResiDoor_internalDoorSashColourObj = null;
@@ -1478,6 +1478,14 @@
                             '| gapW=' + gapW.toFixed(2) + 'px (' + gapWmm + 'mm)',
                             '| gapH=' + gapH.toFixed(2) + 'px (' + gapHmm + 'mm)'
                         );
+                        // Report natural size back to parent so it can adjust overlay to match exactly
+                        try {
+                            window.parent.postMessage({
+                                source: 'product-display',
+                                command: 'resiNaturalSize',
+                                data: { natW: natW, natH: natH, scale: scale }
+                            }, '*');
+                        } catch(e) {}
                     }
                     // Re-position sash overlay after repaint settles
                     setTimeout(pvcResiDoor_updateSashOverlay, 50);

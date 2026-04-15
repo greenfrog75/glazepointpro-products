@@ -1412,16 +1412,11 @@
             if (topMeasure) { topMeasure.style.display = 'none'; topMeasure.style.marginLeft = '0'; topMeasure.style.width = '0'; }
             if (rightMeasure) { rightMeasure.style.display = 'none'; rightMeasure.style.width = '0px'; }
             rowMeasures.forEach(function(el) { el.style.display = 'none'; el.style.width = '0px'; });
-            // Fix sash shadow positions — measure-width is gone in embedded mode
-            var panelWidth = 'var(--panel-width)';
-            var sh = document.getElementById('pvcResiDoorSashShadowTop');
-            if (sh) { sh.style.left = '0'; sh.style.width = panelWidth; }
-            var sh = document.getElementById('pvcResiDoorSashShadowBottom');
-            if (sh) { sh.style.left = '0'; sh.style.width = panelWidth; }
-            var sh = document.getElementById('pvcResiDoorSashShadowLeft');
-            if (sh) { sh.style.left = '-3px'; sh.style.top = '0'; sh.style.height = '100%'; }
-            var sh = document.getElementById('pvcResiDoorSashShadowRight');
-            if (sh) { sh.style.left = panelWidth; sh.style.top = '0'; sh.style.height = '100%'; }
+            // Hide sash shadows in embedded mode
+            ['Top','Bottom','Left','Right'].forEach(function(s) {
+                var el = document.getElementById('pvcResiDoorSashShadow' + s);
+                if (el) el.style.display = 'none';
+            });
             document.querySelectorAll('.row-panel').forEach(function(el) {
                 el.style.marginLeft   = '0';
                 el.style.marginRight  = '0';

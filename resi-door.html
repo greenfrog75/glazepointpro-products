@@ -1398,12 +1398,22 @@
         function pvcResiDoor_applyEmbeddedOverrides() {
             if (!pvcResiDoor_embeddedMode) return;
             document.documentElement.style.setProperty('--frame-thickness', '0px');
+            document.documentElement.style.setProperty('--measure-width', '0px');
             document.querySelectorAll(
                 '.pvc-resi-door-frame-topEdge, .pvc-resi-door-frame-bottomEdge, ' +
                 '.pvc-resi-door-frame-leftEdge, .pvc-resi-door-frame-rightEdge, ' +
                 '.pvc-resi-door-frame-border-shadow, #pvcResiDoorFrameBorderShadow, ' +
                 '.pvc-resi-door-frame-corner-line'
             ).forEach(function(el) { el.style.display = 'none'; });
+            // Hide measurement elements — they cause width overflow in embedded iframe
+            var topMeasure = document.querySelector('.top-measure');
+            var rightMeasure = document.getElementById('rightMeasure');
+            var rowMeasures = document.querySelectorAll('.row-measure');
+            if (topMeasure) topMeasure.style.display = 'none';
+            if (rightMeasure) rightMeasure.style.display = 'none';
+            rowMeasures.forEach(function(el) { el.style.display = 'none'; });
+            // Hide sash shadow divs — hidden in embedded mode as frame/sash are frameless
+            // (re-shown by updateSashOverlay when open direction is set)
             document.querySelectorAll('.row-panel').forEach(function(el) {
                 el.style.marginLeft   = '0';
                 el.style.marginRight  = '0';

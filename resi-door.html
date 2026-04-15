@@ -1001,7 +1001,7 @@
         // ── Colours ──
         var pvcResiDoor_frameColour = '#efeeee';
         var pvcResiDoor_frameColourObj = null;
-        var pvcResiDoor_sashColour = '#0000ff';
+        var pvcResiDoor_sashColour = '#00ff00';
         var pvcResiDoor_doorSashColourObj = null;
         var pvcResiDoor_internalFrameColourObj = null;
         var pvcResiDoor_internalDoorSashColourObj = null;
@@ -1465,6 +1465,19 @@
                     if (natW > 0 && natH > 0) {
                         wrapper.style.transform       = 'scale(' + scale + ')';
                         wrapper.style.transformOrigin = 'top left';
+                        var renderedH = natH * scale;
+                        var renderedW = natW * scale;
+                        var gapH = pvcResiDoor_lastOverlayH - renderedH;
+                        var gapW = pvcResiDoor_lastOverlayW - renderedW;
+                        var gapHmm = (gapH * SCALE_FACTOR).toFixed(2);
+                        var gapWmm = (gapW * SCALE_FACTOR).toFixed(2);
+                        console.log('🔵 [EMBED FINAL]',
+                            'scale=' + scale.toFixed(4),
+                            '| renderedW=' + renderedW.toFixed(2) + ' renderedH=' + renderedH.toFixed(2),
+                            '| overlayW=' + pvcResiDoor_lastOverlayW + ' overlayH=' + pvcResiDoor_lastOverlayH,
+                            '| gapW=' + gapW.toFixed(2) + 'px (' + gapWmm + 'mm)',
+                            '| gapH=' + gapH.toFixed(2) + 'px (' + gapHmm + 'mm)'
+                        );
                     }
                     // Re-position sash overlay after repaint settles
                     setTimeout(pvcResiDoor_updateSashOverlay, 50);

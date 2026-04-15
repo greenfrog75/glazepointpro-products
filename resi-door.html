@@ -3133,6 +3133,7 @@
                     break;
                 case 'setOpenDirection':
                     pvcResiDoor_setOpenDirection(data.direction);
+                    pvcResiDoor_sendStateToConsole();
                     break;
                 case 'updateDoorThreshold':
                     pvcResiDoor_doorThreshold = data.doorThreshold;

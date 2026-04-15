@@ -935,7 +935,6 @@
             SCALE_FACTOR = pvcResiDoor_calculateScaleFactor(width, height);
             // Recalculate all CSS px variables from mm constants at new scale
             pvcResiDoor_recalcScaleDeps();
-            console.log('Scale factor set to:', SCALE_FACTOR, 'for dimensions:', width, 'x', height);
         }
 
         // ============================================
@@ -989,7 +988,6 @@
                 pvcResiDoor_resizeObserver.disconnect();
             }
 
-            console.log('🔗 Resi door entering embedded mode');
         }
         
         // ============================================
@@ -1001,7 +999,7 @@
         // ── Colours ──
         var pvcResiDoor_frameColour = '#efeeee';
         var pvcResiDoor_frameColourObj = null;
-        var pvcResiDoor_sashColour = '#800080';
+        var pvcResiDoor_sashColour = '#efeeee';
         var pvcResiDoor_doorSashColourObj = null;
         var pvcResiDoor_internalFrameColourObj = null;
         var pvcResiDoor_internalDoorSashColourObj = null;
@@ -1280,7 +1278,6 @@
             pvcResiDoor_applySashColour(pvcResiDoor_sashColour);
             pvcResiDoor_updateRowVisibility(); // Re-apply bottom border after applySashColour overwrites it
 
-            console.log('Door open direction set to:', direction, '— frame:', FRAME_THICKNESS_MM, 'sash face:', SASH_FACE_MM);
         }
         
         // ============================================
@@ -1439,45 +1436,9 @@
                     var scaleX = pvcResiDoor_lastOverlayW / natW;
                     var scaleY = pvcResiDoor_lastOverlayH / natH;
                     var scale = Math.max(scaleX, scaleY);
-                    console.log('🔵 [EMBED SCALE]',
-                        'direction=' + pvcResiDoor_openDirection,
-                        '| overlayW=' + pvcResiDoor_lastOverlayW,
-                        '| overlayH=' + pvcResiDoor_lastOverlayH,
-                        '| natW=' + natW,
-                        '| natH=' + natH,
-                        '| scaleX=' + scaleX.toFixed(4),
-                        '| scaleY=' + scaleY.toFixed(4),
-                        '| chosen=' + scale.toFixed(4),
-                        '| FRAME_THICKNESS_MM=' + FRAME_THICKNESS_MM,
-                        '| SASH_FACE_MM=' + SASH_FACE_MM
-                    );
-                    // Log bottom sash margin
-                    var bottomSash = document.querySelector('.sash-area');
-                    var allSashes = document.querySelectorAll('.sash-area');
-                    var lastSash = allSashes[allSashes.length - 1];
-                    if (lastSash) console.log('🔵 [EMBED SCALE] lastSash marginBottom=' + lastSash.style.marginBottom + ' marginTop=' + lastSash.style.marginTop);
-                    // Log each row panel height
-                    for (var r = 1; r <= 3; r++) {
-                        var rp = document.querySelector('#row' + r + ' .row-panel');
-                        var sa = document.querySelector('#row' + r + ' .sash-area');
-                        if (rp) console.log('🔵 [EMBED SCALE] row' + r + ' panel.height=' + rp.style.height + ' sash.marginTop=' + (sa ? sa.style.marginTop : 'n/a') + ' sash.marginBottom=' + (sa ? sa.style.marginBottom : 'n/a'));
-                    }
                     if (natW > 0 && natH > 0) {
                         wrapper.style.transform       = 'scale(' + scale + ')';
                         wrapper.style.transformOrigin = 'top left';
-                        var renderedH = natH * scale;
-                        var renderedW = natW * scale;
-                        var gapH = pvcResiDoor_lastOverlayH - renderedH;
-                        var gapW = pvcResiDoor_lastOverlayW - renderedW;
-                        var gapHmm = (gapH * SCALE_FACTOR).toFixed(2);
-                        var gapWmm = (gapW * SCALE_FACTOR).toFixed(2);
-                        console.log('🔵 [EMBED FINAL]',
-                            'scale=' + scale.toFixed(4),
-                            '| renderedW=' + renderedW.toFixed(2) + ' renderedH=' + renderedH.toFixed(2),
-                            '| overlayW=' + pvcResiDoor_lastOverlayW + ' overlayH=' + pvcResiDoor_lastOverlayH,
-                            '| gapW=' + gapW.toFixed(2) + 'px (' + gapWmm + 'mm)',
-                            '| gapH=' + gapH.toFixed(2) + 'px (' + gapHmm + 'mm)'
-                        );
                         // Report natural size back to parent so it can adjust overlay to match exactly
                         try {
                             window.parent.postMessage({
@@ -1494,7 +1455,6 @@
         }
 
         function pvcResiDoor_applyAllVisuals() {
-            console.log('Applying visuals with scale factor:', SCALE_FACTOR);
 
             // Recalc all CSS px deps from mm constants at current scale
             pvcResiDoor_recalcScaleDeps();
@@ -1660,7 +1620,6 @@
             pvcResiDoor_applyMidrailHeights();
             pvcResiDoor_applyAllVisuals();
             
-            console.log('📐 Midrail 1 height:', pvcResiDoor_midrail1Height, 'mm, ROW_COUNT:', ROW_COUNT);
             
             // Notify console of state change
             pvcResiDoor_sendStateToConsole();
@@ -1680,7 +1639,6 @@
             pvcResiDoor_applyMidrailHeights();
             pvcResiDoor_applyAllVisuals();
             
-            console.log('📐 Midrail 2 height:', pvcResiDoor_midrail2Height, 'mm, ROW_COUNT:', ROW_COUNT);
             
             // Notify console of state change
             pvcResiDoor_sendStateToConsole();
@@ -1710,7 +1668,6 @@
                 }
             }
             
-            console.log('📐 Redistributed row heights:', heightPerRow, 'x', ROW_COUNT, 'rows');
         }
         
         function pvcResiDoor_updateRowVisibility() {
@@ -1835,7 +1792,6 @@
             pvcResiDoor_panelMaterials[panelNum - 1] = material;
             pvcResiDoor_applyPanelMaterial(panelNum);
             pvcResiDoor_sendStateToConsole();
-            console.log('📐 Panel', panelNum, 'material:', material);
         }
         
         function pvcResiDoor_applyPanelMaterial(panelNum) {
@@ -2615,11 +2571,9 @@
         // INITIALIZATION
         // ============================================
         function pvcResiDoor_initialize() {
-            console.log('🚀 Resi Door initializing...');
             
             // Calculate initial scale factor based on height
             pvcResiDoor_setScaleFactorFromDimensions();
-            console.log('📐 Initial scale factor:', SCALE_FACTOR, pvcResiDoor_isInBay() ? '(bay mode)' : '(single product)');
             
             // Panel click handlers — single click selects pane for bars
             var panel1 = document.getElementById('glassPanel1');
@@ -2724,7 +2678,6 @@
             // Send initial state to console
             pvcResiDoor_sendInitialStateToConsole();
             
-            console.log('✅ Resi Door initialization complete');
         }
         
         if (document.readyState === 'loading') {
@@ -2812,7 +2765,6 @@
                             var scale = Math.max(d.overlayW / natW, d.overlayH / natH);
                             wrapper2.style.transform       = 'scale(' + scale + ')';
                             wrapper2.style.transformOrigin = 'top left';
-                            console.log('🔗 resi-door: scale applied', scale, 'natW='+natW+' natH='+natH+' overlayW='+d.overlayW+' overlayH='+d.overlayH);
                         }
                     }, 50);
                 }
@@ -3115,7 +3067,6 @@
         }
         
         function pvcResiDoor_handleControlCommand(command, data) {
-            console.log('🟢 Resi Door received:', command, data);
             switch(command) {
                 case 'updateProfile':
                     if (data && data.profileName !== undefined) pvcResiDoor_savedProfileName = data.profileName;
@@ -3220,7 +3171,6 @@
         }
         
         function pvcResiDoor_loadProductData(data) {
-            console.log('📐 Loading product data:', data);
             
             // Load dimensions - support both new (frame) and old (dimensions) format
             var width, height;
@@ -3331,7 +3281,6 @@
             
             // Calculate and apply scale factor
             pvcResiDoor_setScaleFactorFromDimensions();
-            console.log('📐 Load product scale factor:', SCALE_FACTOR);
             
             // Apply colours
             if (data.colours && data.colours.externalFrame) {

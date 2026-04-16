@@ -999,7 +999,7 @@
         // ── Colours ──
         var pvcResiDoor_frameColour = '#efeeee';
         var pvcResiDoor_frameColourObj = null;
-        var pvcResiDoor_sashColour = '#ff6600';
+        var pvcResiDoor_sashColour = '#ff69b4';
         var pvcResiDoor_doorSashColourObj = null;
         var pvcResiDoor_internalFrameColourObj = null;
         var pvcResiDoor_internalDoorSashColourObj = null;
@@ -1405,7 +1405,6 @@
         // ============================================
         function pvcResiDoor_applyEmbeddedOverrides() {
             if (!pvcResiDoor_embeddedMode) return;
-            console.log('🔵 applyEmbeddedOverrides called, lastOverlayW='+pvcResiDoor_lastOverlayW+' lastOverlayH='+pvcResiDoor_lastOverlayH);
             document.documentElement.style.setProperty('--frame-thickness', '0px');
             document.querySelectorAll(
                 '.pvc-resi-door-frame-topEdge, .pvc-resi-door-frame-bottomEdge, ' +
@@ -1443,15 +1442,6 @@
                     if (natW > 0 && natH > 0) {
                         wrapper.style.transform       = 'scale(' + scale + ')';
                         wrapper.style.transformOrigin = 'top left';
-                        // Report natural size back to parent so it can adjust overlay to match exactly
-                        try {
-                            console.log('🔵 sending resiNaturalSize natW='+natW+' natH='+natH+' scale='+scale.toFixed(4));
-                            window.parent.postMessage({
-                                source: 'product-display',
-                                command: 'resiNaturalSize',
-                                data: { natW: natW, natH: natH, scale: scale }
-                            }, '*');
-                        } catch(e) {}
                     }
                     // Re-position sash overlay after repaint settles
                     setTimeout(pvcResiDoor_updateSashOverlay, 50);

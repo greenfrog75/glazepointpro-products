@@ -999,7 +999,7 @@
         // ── Colours ──
         var pvcResiDoor_frameColour = '#efeeee';
         var pvcResiDoor_frameColourObj = null;
-        var pvcResiDoor_sashColour = '#00cc00';
+        var pvcResiDoor_sashColour = '#0000ff';
         var pvcResiDoor_doorSashColourObj = null;
         var pvcResiDoor_internalFrameColourObj = null;
         var pvcResiDoor_internalDoorSashColourObj = null;
@@ -1416,6 +1416,10 @@
             // Hide cill in embedded mode — combined frame handles cill externally
             var cillRow = document.getElementById('cillRow');
             if (cillRow) cillRow.style.display = 'none';
+            // Hide bottom-row-only elements — updateRowVisibility re-shows these, so hide again here
+            document.querySelectorAll('.bottom-row-only').forEach(function(el) {
+                el.style.display = 'none';
+            });
             document.querySelectorAll('.row-panel').forEach(function(el) {
                 el.style.marginLeft   = '0';
                 el.style.marginRight  = '0';

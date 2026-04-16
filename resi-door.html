@@ -999,7 +999,7 @@
         // ── Colours ──
         var pvcResiDoor_frameColour = '#efeeee';
         var pvcResiDoor_frameColourObj = null;
-        var pvcResiDoor_sashColour = '#ffff00';
+        var pvcResiDoor_sashColour = '#efeeee';
         var pvcResiDoor_doorSashColourObj = null;
         var pvcResiDoor_internalFrameColourObj = null;
         var pvcResiDoor_internalDoorSashColourObj = null;
@@ -1405,7 +1405,6 @@
         // ============================================
         function pvcResiDoor_applyEmbeddedOverrides() {
             if (!pvcResiDoor_embeddedMode) return;
-            console.log('🔵 [OVERRIDE] cillVisible='+pvcResiDoor_cillVisible+' cillHeight='+pvcResiDoor_cillHeight+' lastOverlayH='+pvcResiDoor_lastOverlayH);
             document.documentElement.style.setProperty('--frame-thickness', '0px');
             document.querySelectorAll(
                 '.pvc-resi-door-frame-topEdge, .pvc-resi-door-frame-bottomEdge, ' +
@@ -1441,14 +1440,13 @@
                     wrapper.style.transform = 'none';
                     var natW = wrapper.scrollWidth;
                     var natH = wrapper.scrollHeight;
-                    var effectiveOverlayH = pvcResiDoor_lastOverlayH - 4;
+                    var effectiveOverlayH = pvcResiDoor_lastOverlayH - 4 - (pvcResiDoor_cillHeight > 0 ? 4 : 0);
                     var scaleX = pvcResiDoor_lastOverlayW / natW;
                     var scaleY = effectiveOverlayH / natH;
                     var scale = Math.min(scaleX, scaleY);
                     if (natW > 0 && natH > 0) {
                         wrapper.style.transform       = 'scale(' + scale + ')';
                         wrapper.style.transformOrigin = 'top left';
-                        console.log('🔵 [SCALE] natW='+natW+' natH='+natH+' overlayW='+pvcResiDoor_lastOverlayW+' overlayH='+pvcResiDoor_lastOverlayH+' scaleX='+scaleX.toFixed(4)+' scaleY='+scaleY.toFixed(4)+' chosen='+scale.toFixed(4)+' renderedH='+(natH*scale).toFixed(1));
                     }
                     // Re-position sash overlay after repaint settles
                     setTimeout(pvcResiDoor_updateSashOverlay, 50);
@@ -2741,7 +2739,6 @@
                     var r1 = document.querySelector('#row1 .row-measure input');
                     if (r1) r1.value = d.heightMm;
                 }
-                console.log('🔵 [UPDATE] received heightMm='+d.heightMm+' widthMm='+d.widthMm+' overlayW='+d.overlayW+' overlayH='+d.overlayH+' scaleFactor='+d.scaleFactor);
                 pvcResiDoor_redistributeRowHeights();
                 pvcResiDoor_applyAllVisuals();
                 pvcResiDoor_updateRowVisibility();
@@ -2765,9 +2762,8 @@
                         var natW = wrapper2.scrollWidth;
                         var natH = wrapper2.scrollHeight;
                         var scaleX = d.overlayW / natW;
-                        var scaleY = (d.overlayH - 4) / natH;
+                        var scaleY = (d.overlayH - 4 - (pvcResiDoor_cillHeight > 0 ? 4 : 0)) / natH;
                         var scale = Math.min(scaleX, scaleY);
-                        console.log('🔵 [SCALE] natW='+natW+' natH='+natH+' overlayW='+d.overlayW+' overlayH='+d.overlayH+' scaleX='+scaleX.toFixed(4)+' scaleY='+scaleY.toFixed(4)+' chosen='+scale.toFixed(4)+' renderedW='+(natW*scale).toFixed(1)+' renderedH='+(natH*scale).toFixed(1)+' gapW='+(d.overlayW-natW*scale).toFixed(1)+' gapH='+(d.overlayH-natH*scale).toFixed(1));
                         if (natW > 0 && natH > 0) {
                             wrapper2.style.transform       = 'scale(' + scale + ')';
                             wrapper2.style.transformOrigin = 'top left';

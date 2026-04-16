@@ -999,7 +999,7 @@
         // ── Colours ──
         var pvcResiDoor_frameColour = '#efeeee';
         var pvcResiDoor_frameColourObj = null;
-        var pvcResiDoor_sashColour = '#0000ff';
+        var pvcResiDoor_sashColour = '#ff6600';
         var pvcResiDoor_doorSashColourObj = null;
         var pvcResiDoor_internalFrameColourObj = null;
         var pvcResiDoor_internalDoorSashColourObj = null;
@@ -1441,8 +1441,9 @@
                     wrapper.style.transform = 'none';
                     var natW = wrapper.scrollWidth;
                     var natH = wrapper.scrollHeight;
+                    var effectiveOverlayH = pvcResiDoor_lastOverlayH - (pvcResiDoor_openDirection === 'in' ? 4 : 0);
                     var scaleX = pvcResiDoor_lastOverlayW / natW;
-                    var scaleY = pvcResiDoor_lastOverlayH / natH;
+                    var scaleY = effectiveOverlayH / natH;
                     var scale = Math.min(scaleX, scaleY);
                     if (natW > 0 && natH > 0) {
                         wrapper.style.transform       = 'scale(' + scale + ')';

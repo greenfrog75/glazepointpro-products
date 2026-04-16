@@ -1438,7 +1438,7 @@
                     var natH = wrapper.scrollHeight;
                     var scaleX = pvcResiDoor_lastOverlayW / natW;
                     var scaleY = pvcResiDoor_lastOverlayH / natH;
-                    var scale = Math.max(scaleX, scaleY);
+                    var scale = Math.min(scaleX, scaleY);
                     if (natW > 0 && natH > 0) {
                         wrapper.style.transform       = 'scale(' + scale + ')';
                         wrapper.style.transformOrigin = 'top left';
@@ -2765,7 +2765,7 @@
                         var natW = wrapper2.scrollWidth;
                         var natH = wrapper2.scrollHeight;
                         if (natW > 0 && natH > 0) {
-                            var scale = Math.max(d.overlayW / natW, d.overlayH / natH);
+                            var scale = Math.min(d.overlayW / natW, d.overlayH / natH);
                             wrapper2.style.transform       = 'scale(' + scale + ')';
                             wrapper2.style.transformOrigin = 'top left';
                         }

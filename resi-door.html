@@ -999,7 +999,7 @@
         // ── Colours ──
         var pvcResiDoor_frameColour = '#efeeee';
         var pvcResiDoor_frameColourObj = null;
-        var pvcResiDoor_sashColour = '#00ffff';
+        var pvcResiDoor_sashColour = '#800080';
         var pvcResiDoor_doorSashColourObj = null;
         var pvcResiDoor_internalFrameColourObj = null;
         var pvcResiDoor_internalDoorSashColourObj = null;
@@ -1646,8 +1646,8 @@
             var heightInput = document.querySelector('#rightMeasure input');
             var totalHeight = parseInt(heightInput ? heightInput.value : 2100) || 2100;
             
-            // Subtract cill if visible
-            if (pvcResiDoor_cillVisible) {
+            // Subtract cill if visible — but NOT in embedded mode (combined frame already excluded cill from heightMm)
+            if (pvcResiDoor_cillVisible && !pvcResiDoor_embeddedMode) {
                 totalHeight -= pvcResiDoor_cillHeight;
             }
             

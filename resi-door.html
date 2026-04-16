@@ -1412,6 +1412,9 @@
                 '.pvc-resi-door-frame-border-shadow, #pvcResiDoorFrameBorderShadow, ' +
                 '.pvc-resi-door-frame-corner-line'
             ).forEach(function(el) { el.style.display = 'none'; });
+            // Hide cill in embedded mode — combined frame handles cill externally
+            var cillRow = document.getElementById('cillRow');
+            if (cillRow) cillRow.style.display = 'none';
             document.querySelectorAll('.row-panel').forEach(function(el) {
                 el.style.marginLeft   = '0';
                 el.style.marginRight  = '0';

@@ -1439,7 +1439,6 @@
                     var scaleX = pvcResiDoor_lastOverlayW / natW;
                     var scaleY = pvcResiDoor_lastOverlayH / natH;
                     var scale = Math.min(scaleX, scaleY);
-                    console.log('🔵 [SCALE] natW='+natW+' natH='+natH+' overlayW='+pvcResiDoor_lastOverlayW+' overlayH='+pvcResiDoor_lastOverlayH+' scaleX='+scaleX.toFixed(4)+' scaleY='+scaleY.toFixed(4)+' chosen='+scale.toFixed(4)+' renderedW='+(natW*scale).toFixed(1)+' renderedH='+(natH*scale).toFixed(1));
                     if (natW > 0 && natH > 0) {
                         wrapper.style.transform       = 'scale(' + scale + ')';
                         wrapper.style.transformOrigin = 'top left';
@@ -2767,7 +2766,6 @@
                         var natH = wrapper2.scrollHeight;
                         if (natW > 0 && natH > 0) {
                             var scale = Math.min(d.overlayW / natW, d.overlayH / natH);
-                            console.log('🔗 [SCALE2] natW='+natW+' natH='+natH+' overlayW='+d.overlayW+' overlayH='+d.overlayH+' scaleX='+(d.overlayW/natW).toFixed(4)+' scaleY='+(d.overlayH/natH).toFixed(4)+' chosen='+scale.toFixed(4)+' renderedW='+(natW*scale).toFixed(1)+' renderedH='+(natH*scale).toFixed(1));
                             wrapper2.style.transform       = 'scale(' + scale + ')';
                             wrapper2.style.transformOrigin = 'top left';
                         }

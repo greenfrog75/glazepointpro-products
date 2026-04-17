@@ -3391,8 +3391,8 @@
         function pvcResiDoor_updateSashOverlay() {
             var overlay = document.getElementById('pvcResiDoorSashOverlay');
             if (!overlay) return;
-            
-            overlay.style.display = 'none'; return;
+            var isOpenIn = pvcResiDoor_openDirection === 'in';
+            if (isOpenIn || pvcResiDoor_embeddedMode) { overlay.style.display = 'none'; return; }
 
             var container = overlay.parentElement;
             var containerRect = container.getBoundingClientRect();

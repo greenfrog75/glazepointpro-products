@@ -999,7 +999,7 @@
         // ── Colours ──
         var pvcResiDoor_frameColour = '#efeeee';
         var pvcResiDoor_frameColourObj = null;
-        var pvcResiDoor_sashColour = '#ff0000';
+        var pvcResiDoor_sashColour = '#00cc00';
         var pvcResiDoor_doorSashColourObj = null;
         var pvcResiDoor_internalFrameColourObj = null;
         var pvcResiDoor_internalDoorSashColourObj = null;
@@ -1212,7 +1212,7 @@
             // Show sash overlay only when open direction is OUT, sized to actual sash bounds
             var overlay = document.getElementById('pvcResiDoorSashOverlay');
             if (overlay) {
-                if (isOpenIn) {
+                if (isOpenIn || pvcResiDoor_embeddedMode) {
                     overlay.style.display = 'none';
                 } else {
                     pvcResiDoor_updateSashOverlay();

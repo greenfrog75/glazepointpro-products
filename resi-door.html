@@ -999,7 +999,7 @@
         // ── Colours ──
         var pvcResiDoor_frameColour = '#efeeee';
         var pvcResiDoor_frameColourObj = null;
-        var pvcResiDoor_sashColour = '#efeeee';
+        var pvcResiDoor_sashColour = '#0000ff';
         var pvcResiDoor_doorSashColourObj = null;
         var pvcResiDoor_internalFrameColourObj = null;
         var pvcResiDoor_internalDoorSashColourObj = null;
@@ -1733,8 +1733,9 @@
                 // Apply/remove bottom sash border and margin
                 if (sashArea) {
                     if (isBottomRow) {
-                        var isOpenIn = pvcResiDoor_openDirection === 'in';
+                        
                         var _bevel = getBevelColours(pvcResiDoor_sashColour);
+                        var isOpenIn = pvcResiDoor_openDirection === 'in';
                         var bottomBevelColour = isOpenIn ? _bevel.light : _bevel.dark;
                         sashArea.style.borderBottom = (SASH_BORDER_MM / SCALE_FACTOR) + 'px solid ' + bottomBevelColour;
                         // In embedded mode the frame is hidden so no margin needed
@@ -3390,8 +3391,8 @@
         function pvcResiDoor_updateSashOverlay() {
             var overlay = document.getElementById('pvcResiDoorSashOverlay');
             if (!overlay) return;
-            var isOpenIn = pvcResiDoor_openDirection === 'in';
-            if (isOpenIn || pvcResiDoor_embeddedMode) { overlay.style.display = 'none'; return; }
+            
+            overlay.style.display = 'none'; return;
 
             var container = overlay.parentElement;
             var containerRect = container.getBoundingClientRect();

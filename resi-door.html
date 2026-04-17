@@ -999,7 +999,7 @@
         // ── Colours ──
         var pvcResiDoor_frameColour = '#efeeee';
         var pvcResiDoor_frameColourObj = null;
-        var pvcResiDoor_sashColour = '#0000ff';
+        var pvcResiDoor_sashColour = '#ff6600';
         var pvcResiDoor_doorSashColourObj = null;
         var pvcResiDoor_internalFrameColourObj = null;
         var pvcResiDoor_internalDoorSashColourObj = null;
@@ -1727,7 +1727,7 @@
                 
                 // Show/hide bottom-row-only elements
                 row.querySelectorAll('.bottom-row-only').forEach(function(el) {
-                    el.style.display = isBottomRow ? 'block' : 'none';
+                    el.style.display = (isBottomRow && !pvcResiDoor_embeddedMode) ? 'block' : 'none';
                 });
                 
                 // Apply/remove bottom sash border and margin
